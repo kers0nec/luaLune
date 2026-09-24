@@ -1,14 +1,23 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#090704" />
-    <title>LuaLune</title>
-    <link rel="stylesheet" href="/assets/styles-BBeQLw2r.css" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/assets/index-BRXufwOW.js"></script>
-  </body>
-</html>
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090704"><title>LuaLune</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#090704;color:#fff8df;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+body:before{content:"";position:fixed;inset:-20%;z-index:-1;background:radial-gradient(circle at 50% 15%,rgba(245,197,66,.16),transparent 35%),radial-gradient(circle at 80% 80%,rgba(168,121,0,.10),transparent 30%)}
+.wrap{max-width:1050px;margin:auto;padding:24px}.nav{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border:1px solid #4a3812;border-radius:18px;background:rgba(18,14,7,.72);backdrop-filter:blur(18px)}
+.logo{font-weight:800;font-size:20px;color:#f5c542}.btn{display:inline-block;border:1px solid #5a4412;border-radius:12px;padding:11px 18px;color:#171004;background:#f5c542;text-decoration:none;font-weight:700;cursor:pointer}
+.hero{text-align:center;padding:110px 10px 70px}.pill{display:inline-block;border:1px solid #4a3812;background:rgba(18,14,7,.7);padding:8px 14px;border-radius:999px;color:#bda96f;font-size:13px}
+h1{font-size:clamp(44px,8vw,82px);line-height:1.02;margin:24px 0 18px}h1 span{color:#f5c542}p{color:#bda96f;font-size:18px;line-height:1.6;max-width:650px;margin:0 auto 30px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{border:1px solid #4a3812;background:rgba(18,14,7,.65);border-radius:18px;padding:24px;backdrop-filter:blur(15px)}.card b{color:#f5c542}.card p{font-size:14px;margin:8px 0 0}
+@media(max-width:700px){.cards{grid-template-columns:1fr}.hero{padding-top:75px}}
+</style></head>
+<body><div class="wrap">
+<header class="nav"><div class="logo">LuaLune</div><a class="btn" href="/login">Sign in</a></header>
+<main class="hero"><div class="pill">Luau obfuscation, made effortless</div>
+<h1>Snap your Luau into a <span>loadstring</span></h1>
+<p>Paste your script, name it, hit create. LuaLune obfuscates it and gives you a one-line loader URL.</p>
+<a class="btn" href="/login">Get started</a></main>
+<section class="cards"><div class="card"><b>Obfuscated</b><p>Protected payloads with runtime decoding.</p></div><div class="card"><b>Instant URL</b><p>Each script gets a loader endpoint.</p></div><div class="card"><b>One-line loader</b><p>Copy a loadstring snippet and run.</p></div></section>
+</div></body></html>
