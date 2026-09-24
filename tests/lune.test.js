@@ -41,11 +41,9 @@ test("the anti-tamper wrapper is valid Lua and preserves the script", () => {
 });
 
 test("asking for the Lune engine falls back to Vault with a clear warning", async () => {
-  const challenge = await (await fetch(`${base}/api/captcha`)).json();
-  const solved = await (await fetch(`${base}/api/captcha/solve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(challenge) })).json();
   const signup = await (await fetch(`${base}/api/auth/signup`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "luneuser", password: "password123", captcha: challenge.challenge, captchaNonce: solved.nonce }),
+    body: JSON.stringify({ username: "luneuser", password: "password123" }),
   })).json();
   const token = signup.session.access_token;
 

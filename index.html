@@ -51,7 +51,7 @@
 
     <section class="cards" style="margin-top:16px">
       <div class="card"><b>Never breaks your script</b><p>Each pass verifies the build, and anything that cannot be transformed safely is skipped with a warning instead of shipping a broken script.</p></div>
-      <div class="card"><b>Gold-standard accounts</b><p>Fast username sign-in, sessions, human verification and per-plan usage limits.</p></div>
+      <div class="card"><b>Gold-standard accounts</b><p>Fast username sign-in, instant account creation, sessions and per-plan usage limits.</p></div>
       <div class="card"><b>Honest promises</b><p>Obfuscation raises the cost of reading your source. It is not encryption of secrets — nothing that must stay confidential belongs in a script.</p></div>
     </section>
   </section>
@@ -77,11 +77,6 @@
             <input id="agree" type="checkbox" checked>
             <span class="small">I have read and accept the <a href="#" onclick="go('tos');return false">LuaLune Terms of Service</a>.</span>
           </label>
-        </div>
-        <div id="captchaWrap" class="hidden">
-          <label>Human check</label>
-          <div class="small muted" id="captchaState">Verified</div>
-          <input id="captchaInput" class="tiny mono" readonly>
         </div>
         <div id="authMsg" class="msg muted"></div>
         <button class="btn" style="width:100%;margin-top:8px" id="authBtn">Sign in</button>
@@ -314,7 +309,6 @@ const state = {
   engine: "payload",
   options: { rename: true, strings: true, numbers: true, junk: true, flatten: true, harden: true },
   scripts: [], keys: [], durations: [], invites: [], shares: [],
-  captcha: null, captchaNonce: null, solving: false,
   mode: "login",
   activePane: "build",
   editingScriptId: null,
@@ -497,65 +491,10 @@ function setMode(mode) {
   $("loginTab").classList.toggle("active", mode === "login");
   $("signupTab").classList.toggle("active", mode === "signup");
   $("tosWrap").classList.toggle("hidden", mode !== "signup");
-  $("captchaWrap").classList.toggle("hidden", mode !== "signup");
   $("authTitle").textContent = mode === "login" ? "Sign in" : "Create account";
   $("authBtn").textContent = mode === "login" ? "Sign in" : "Create account";
   $("password").autocomplete = mode === "login" ? "current-password" : "new-password";
   setMsg($("authMsg"), "");
-  if (mode === "signup") prepareCaptcha(); else resetCaptcha();
-}
-
-/* Proof-of-work human check: solved quickly via server solver or local fallback. */
-async function prepareCaptcha() {
-  state.captchaNonce = null;
-  state.solving = true;
-  if ($("captchaInput")) $("captchaInput").value = "";
-  if ($("captchaState")) $("captchaState").textContent = "Preparing challenge…";
-  try {
-    const { data } = await api("/api/captcha");
-    state.captcha = data;
-    if ($("captchaState")) $("captchaState").textContent = "Solving challenge…";
-    try {
-      const { data: solved } = await api("/api/captcha/solve", {
-        method: "POST",
-        body: { challenge: data.challenge, difficulty: data.difficulty }
-      });
-      if (solved && solved.nonce != null) {
-        state.captchaNonce = String(solved.nonce);
-        state.solving = false;
-        if ($("captchaInput")) $("captchaInput").value = "verified · nonce " + solved.nonce;
-        if ($("captchaState")) $("captchaState").textContent = "Human check verified.";
-        return;
-      }
-    } catch {}
-    const nonce = await solveChallenge(data.challenge, data.difficulty);
-    state.captchaNonce = nonce;
-    state.solving = false;
-    if ($("captchaInput")) $("captchaInput").value = "verified · nonce " + nonce;
-    if ($("captchaState")) $("captchaState").textContent = "Human check verified.";
-  } catch (e) {
-    state.solving = false;
-    if ($("captchaState")) $("captchaState").textContent = "Human check ready.";
-  }
-}
-function resetCaptcha() { state.captcha = null; state.captchaNonce = null; state.solving = false; }
-async function sha256Hex(text) {
-  if (typeof crypto !== "undefined" && crypto.subtle) {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
-  let h = 0;
-  for (let i = 0; i < text.length; i++) h = ((h << 5) - h + text.charCodeAt(i)) | 0;
-  return "0000" + Math.abs(h).toString(16).padStart(60, "0");
-}
-async function solveChallenge(challenge, difficulty) {
-  const prefix = "0".repeat(Math.ceil(difficulty / 4));
-  for (let nonce = 0; nonce < 5_000_000; nonce++) {
-    const digest = await sha256Hex(challenge + nonce);
-    if (digest.startsWith(prefix)) return String(nonce);
-    if (nonce % 2000 === 1999) await new Promise((r) => setTimeout(r, 0));
-  }
-  return "0";
 }
 
 $("authForm").addEventListener("submit", async (event) => {
@@ -563,7 +502,6 @@ $("authForm").addEventListener("submit", async (event) => {
   const username = $("username").value.trim();
   const password = $("password").value;
   const btn = $("authBtn");
-  const captchaBroken = (message) => /human check|captcha/i.test(String(message || ""));
   try {
     if (!username) return setMsg($("authMsg"), "Enter your username.", "error");
     if (!password) return setMsg($("authMsg"), "Enter your password.", "error");
@@ -584,32 +522,9 @@ $("authForm").addEventListener("submit", async (event) => {
       setMsg($("authMsg"), "Creating your account…");
       btn.disabled = true;
 
-      if (!state.captchaNonce) {
-        try {
-          const { data: cap } = await api("/api/captcha");
-          state.captcha = cap;
-          const { data: solved } = await api("/api/captcha/solve", {
-            method: "POST",
-            body: { challenge: cap.challenge, difficulty: cap.difficulty }
-          });
-          if (solved && solved.nonce != null) {
-            state.captchaNonce = String(solved.nonce);
-          }
-        } catch {
-          if (state.captcha) {
-            state.captchaNonce = await solveChallenge(state.captcha.challenge, state.captcha.difficulty);
-          }
-        }
-      }
-
       const { data } = await api("/api/auth/signup", {
         method: "POST",
-        body: {
-          username,
-          password,
-          captcha: state.captcha?.challenge,
-          captchaNonce: state.captchaNonce,
-        }
+        body: { username, password }
       });
 
       if (data.session && data.session.access_token) {
@@ -660,12 +575,6 @@ $("authForm").addEventListener("submit", async (event) => {
     await boot();
   } catch (e) {
     setMsg($("authMsg"), e.message, "error");
-    // A spent or expired human check must never wedge the form: fetch a fresh
-    // challenge so the very next attempt can succeed.
-    if (captchaBroken(e.message)) {
-      resetCaptcha();
-      prepareCaptcha();
-    }
   } finally {
     btn.disabled = false;
   }
