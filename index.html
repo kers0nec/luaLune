@@ -157,6 +157,25 @@
           <button class="btn small" onclick="tab('build')">New script</button>
         </div>
       </div>
+      <div id="editPanel" class="panel hidden" style="margin:16px 0;border-color:var(--gold-3)">
+        <div class="row between">
+          <b id="editTitle" style="color:var(--gold)">Replace source</b>
+          <button class="btn alt small" onclick="closeEdit()">Close</button>
+        </div>
+        <div class="muted small">Upload or paste the new source. The loader URL and keys stay exactly the same — only the protected build is replaced.</div>
+        <label>New source file <span class="muted small">(.lua, .luau, .txt — max 2 MB)</span></label>
+        <input id="editFile" type="file" accept=".lua,.luau,.txt" class="small">
+        <label>Or paste it</label>
+        <textarea id="editSource" placeholder="-- new version of your script"></textarea>
+        <label>Engine</label>
+        <select id="editEngine">
+          <option value="payload">LuaLune Obfuscator</option>
+          <option value="flow">LuaLune Obfuscator - Flow</option>
+          <option value="none">None</option>
+        </select>
+        <div id="editMsg" class="msg muted"></div>
+        <button class="btn" style="margin-top:8px" onclick="saveEdit()">Re-obfuscate</button>
+      </div>
       <div id="scripts" class="muted">Loading…</div>
       <div id="sharedWithMe" style="margin-top:22px"></div>
     </div>
@@ -598,6 +617,7 @@ function renderScriptList() {
           <span class="chip ${s.key_required ? "gold" : ""}">${s.key_required ? "key required" : "open"}</span>
           <span class="chip">${esc(s.engineName)}</span>
           <button class="btn alt small" onclick="viewScript('${s.id}','${esc(s.name).replace(/'/g, "")}')">View</button>
+          <button class="btn alt small" onclick="openEdit('${s.id}','${esc(s.name).replace(/'/g, "")}','${esc(s.engine)}')">Edit</button>
           <button class="btn small" onclick="copyLoader('${s.id}', this)">Copy loader</button>
           <button class="btn alt small" onclick="togglePublic('${s.id}', ${s.public ? "false" : "true"})">${s.public ? "Make private" : "Make public"}</button>
           <button class="btn danger small" onclick="deleteScript('${s.id}')">Delete</button>
@@ -632,6 +652,43 @@ async function deleteScript(id) {
 async function togglePublic(id, makePublic) {
   await api("/api/scripts/" + id, { method: "PATCH", body: { public: makePublic } });
   loadScripts();
+}
+
+/* --------------------------------------------------------------- edit flow */
+let editingId = null;
+function openEdit(id, name, engine) {
+  editingId = id;
+  $("editTitle").textContent = "Replace source for " + name;
+  $("editEngine").value = state.meta?.engines?.some((e) => e.id === engine) ? engine : "payload";
+  $("editSource").value = "";
+  $("editFile").value = "";
+  setMsg($("editMsg"), "");
+  $("editPanel").classList.remove("hidden");
+  $("editPanel").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function closeEdit() { editingId = null; $("editPanel").classList.add("hidden"); }
+$("editFile").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) return setMsg($("editMsg"), "That file is bigger than 2 MB.", "error");
+  $("editSource").value = await file.text();
+  setMsg($("editMsg"), "Loaded " + file.name + " — press Re-obfuscate.", "ok");
+});
+async function saveEdit() {
+  const source = $("editSource").value;
+  if (!editingId) return;
+  if (!source.trim()) return setMsg($("editMsg"), "Paste or upload the new source first.", "error");
+  setMsg($("editMsg"), "Re-obfuscating…");
+  try {
+    const { data } = await api("/api/scripts/" + editingId + "/rebuild", { method: "POST", body: { source, engine: $("editEngine").value, ...state.options } });
+    const warnings = (data.warnings || []).length ? " " + data.warnings.join(" ") : "";
+    setMsg($("editMsg"), "Rebuilt as build " + data.stats.buildId + "." + warnings, "ok");
+    closeEdit();
+    loadScripts();
+  } catch (e) {
+    setMsg($("editMsg"), e.message, "error");
+    if (e.status === 428) { closeEdit(); tab("account"); }
+  }
 }
 
 /* -------------------------------------------------------------------- keys */

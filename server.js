@@ -338,9 +338,7 @@ app.get("/api/scripts/:id/view", authed, async (req, res) => {
 app.get("/api/scripts/:id/logs", authed, async (req, res) => {
   const script = await store.getScript(req.params.id);
   if (!script || script.owner_id !== req.user.id) return fail(res, 404, "Script not found.");
-  if (planFor(req.plan).limits.scripts !== -1 && req.plan === "free") {
-    return fail(res, 402, "Execution logs are available on Pro and Premium.", { upgrade: true });
-  }
+  if (req.plan === "free") return fail(res, 402, "Execution logs are available on Pro and Premium.", { upgrade: true });
   const logs = await store.listLogs(script.id, Math.min(Number(req.query.limit) || 25, 100));
   res.json({ logs });
 });
