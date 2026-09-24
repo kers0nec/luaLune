@@ -224,6 +224,15 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
   });
 });
 
+app.post("/api/auth/update-password", async (req, res) => {
+  const token = bearer(req);
+  if (!token) return fail(res, 401, "Reset session expired. Request a new reset email.");
+  const password = String(req.body?.password || "");
+  const result = await auth.updatePassword(token, password);
+  if (result.error) return fail(res, 400, result.error);
+  res.json({ ok: true });
+});
+
 app.get("/api/auth/me", authed, async (req, res) => {
   const usage = await store.getUsage(req.user.id);
   res.json({
