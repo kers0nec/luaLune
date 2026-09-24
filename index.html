@@ -66,11 +66,14 @@
       <form id="authForm">
         <div class="eyebrow">Account</div>
         <h2 id="authTitle">Welcome back</h2>
-        <label>Username</label>
-        <input id="username" autocomplete="username" minlength="3" maxlength="24" placeholder="your_username" required>
-        <div id="emailWrap" class="hidden">
-          <label>Email <span class="muted small">(optional)</span></label>
-          <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+        <div id="usernameWrap">
+          <label>Display name <span class="muted small">(optional)</span></label>
+          <input id="username" autocomplete="nickname" minlength="3" maxlength="24" placeholder="your_username">
+        </div>
+        <label>Email</label>
+        <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+        <div class="row" style="justify-content:flex-end;margin-top:8px">
+          <button id="forgotBtn" type="button" class="linkbtn" onclick="forgotPassword()">Forgot password?</button>
         </div>
         <label>Password</label>
         <input id="password" type="password" autocomplete="current-password" minlength="8" required>
@@ -435,7 +438,9 @@ function setMode(mode) {
   $("signupTab").classList.toggle("active", mode === "signup");
   $("tosWrap").classList.toggle("hidden", mode !== "signup");
   $("captchaWrap").classList.toggle("hidden", mode !== "signup");
-  $("emailWrap").classList.toggle("hidden", mode !== "signup");
+  $("usernameWrap").classList.toggle("hidden", mode !== "signup");
+  $("email").required = true;
+  $("forgotBtn").classList.toggle("hidden", mode !== "login");
   $("authTitle").textContent = mode === "login" ? "Welcome back" : "Create your workspace";
   $("authBtn").textContent = mode === "login" ? "Sign in" : "Create account";
   $("password").autocomplete = mode === "login" ? "current-password" : "new-password";
@@ -480,25 +485,30 @@ async function solveChallenge(challenge, difficulty) {
 
 $("authForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const email = $("email").value.trim().toLowerCase();
   const username = $("username").value.trim();
   const password = $("password").value;
   try {
+    if (!email) return setMsg($("authMsg"), "Enter your email address.", "error");
     if (state.mode === "signup") {
       if (!$("agree").checked) return setMsg($("authMsg"), "Accept the Terms of Service first.", "error");
       if (state.solving) return setMsg($("authMsg"), "Human check still running…", "muted");
       setMsg($("authMsg"), "Creating your account…");
       const { data } = await api("/api/auth/signup", { method: "POST", body: {
-        username, password, email: $("email").value.trim(),
+        username: username || email.split("@")[0], password, email,
         captcha: state.captcha?.challenge, captchaNonce: state.captchaNonce,
       }});
-      if (!data.session) return setMsg($("authMsg"), "Account created. Check your email to confirm it, then sign in.", "ok");
+      if (!data.session) {
+        setMsg($("authMsg"), "Account created. Check your email and click the confirmation link, then sign in.", "ok");
+        return;
+      }
       state.token = data.session.access_token;
       localStorage.setItem("lualune_token", state.token);
       await boot();
       return;
     }
     setMsg($("authMsg"), "Signing in…");
-    const { data } = await api("/api/auth/login", { method: "POST", body: { identifier: username, password } });
+    const { data } = await api("/api/auth/login", { method: "POST", body: { email, password } });
     state.token = data.session.access_token;
     localStorage.setItem("lualune_token", state.token);
     await boot();
@@ -507,387 +517,17 @@ $("authForm").addEventListener("submit", async (event) => {
   }
 });
 
-async function logout(callApi = true) {
-  if (callApi && state.token) { try { await api("/api/auth/logout", { method: "POST" }); } catch { /* ignore */ } }
-  state.token = null; state.user = null; state.profile = null;
-  state.scripts = []; state.keys = [];
-  localStorage.removeItem("lualune_token");
-  renderNav(); go("home");
-}
-
-/* -------------------------------------------------------------- dashboard */
-function tab(name) {
-  ["build", "scripts", "keys", "workspace", "account", "admin"].forEach((t) => {
-    $("pane-" + t).classList.toggle("hidden", t !== name);
-    $("tab-" + t).className = (t === name ? "btn" : "btn alt") + " small";
-  });
-  if (name === "scripts") loadScripts();
-  if (name === "keys") loadKeys();
-  if (name === "workspace") loadWorkspace();
-  if (name === "admin") loadAdmin();
-}
-
-const ENGINE_NOTES = {
-  lune: "AST-level engine powered by Prometheus inside a WASM Lua VM. Enable the engine bundle to use it.",
-  payload: "Fastest build. Whole-chunk encryption with shuffled segments, an integrity check and a runtime decoder.",
-  flow: "Source-level protection for Luau-only executors: flattening, renaming, encrypted strings and numbers.",
-  vault: "Strongest build. Three cascaded transforms, per-segment checksums, decoy records and a magic-marker check. Pure arithmetic, so no bit32 needed.",
-  none: "No protection — the script is served exactly as written.",
-};
-function renderEnginePicker() {
-  const all = state.meta?.engines || [{ id: "payload", name: "LuaLune Obfuscator", tagline: "" }, { id: "flow", name: "LuaLune Obfuscator - Flow", tagline: "" }];
-  const engines = all.filter((e) => e.id !== "none" && e.available !== false);
-  const optional = all.filter((e) => e.available === false);
-  if (!engines.some((e) => e.id === state.engine)) state.engine = engines[0]?.id || "payload";
-  $("enginePicker").innerHTML = engines.map((e) => `
-    <div class="engine ${e.id === state.engine ? "active" : ""}" data-engine="${e.id}" onclick="pickEngine('${e.id}')">
-      <b>${esc(e.name)}</b><small>${esc(e.tagline)}</small>
-    </div>`).join("");
-  $("engineNote").innerHTML = optional.length
-    ? "Optional engine not installed on this instance: " + optional.map((e) => "<b>" + esc(e.name) + "</b>").join(", ") +
-      '. Add the bundle (<span class="mono">npm install wasmoon</span> + <span class="mono">vendor/prometheus</span>) to enable it; requests for it fall back to Vault.'
-    : (ENGINE_NOTES[state.engine] || "");
-  pickEngine(state.engine, true);
-}
-function pickEngine(id, keepNote) {
-  state.engine = id;
-  [...document.querySelectorAll(".engine")].forEach((el) => el.classList.toggle("active", el.dataset.engine === id));
-  // the source-level passes only apply to the flow engine; every engine keeps the guard toggle
-  if (!keepNote) $("engineNote").textContent = ENGINE_NOTES[id] || "";
-  const flowOnly = ["rename", "strings", "numbers", "junk", "flatten"];
-  [...document.querySelectorAll("[data-option]")].forEach((el) => {
-    const key = el.dataset.option;
-    el.classList.toggle("hidden", id === "none" || (flowOnly.includes(key) && id !== "flow"));
-  });
-}
-const OPTION_LABELS = {
-  rename: "Identifier renaming", strings: "String encryption", numbers: "Number encryption", junk: "Dead code",
-  flatten: "Control flow flattening", harden: "Anti-tamper guard",
-};
-function renderOptions() {
-  $("options").innerHTML = Object.entries(OPTION_LABELS).map(([key, label]) => `
-    <label class="toggle ${state.options[key] ? "on" : ""}" data-option="${key}">
-      <input type="checkbox" ${state.options[key] ? "checked" : ""} onchange="toggleOption('${key}', this.checked)"> ${label}
-    </label>`).join("");
-}
-function toggleOption(key, on) {
-  state.options[key] = on;
-  document.querySelector('[data-option="' + key + '"]').classList.toggle("on", on);
-}
-
-$("scriptFile").addEventListener("change", async (event) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  if (file.size > 2 * 1024 * 1024) return setMsg($("createMsg"), "That file is bigger than 2 MB.", "error");
-  $("source").value = await file.text();
-  if (!$("scriptName").value) $("scriptName").value = file.name.replace(/\.[^.]+$/, "");
-  setMsg($("createMsg"), "Loaded " + file.name, "ok");
-});
-
-async function createScript() {
-  const msg = $("createMsg");
-  const source = $("source").value;
-  if (!source.trim()) return setMsg(msg, "Paste or upload some Luau first.", "error");
-  setMsg(msg, "Obfuscating…");
-  $("buildBtn").disabled = true;
+async function forgotPassword() {
+  const email = $("email").value.trim().toLowerCase();
+  if (!email) return setMsg($("authMsg"), "Enter your email first.", "error");
   try {
-    const { data } = await api("/api/scripts", { method: "POST", body: {
-      name: $("scriptName").value.trim() || "untitled",
-      source, engine: state.engine, key_required: $("keyRequired").checked, ...state.options,
-    }});
-    setMsg(msg, "Build ready.", "ok");
-    renderResult(data);
-    await refreshMe();
+    setMsg($("authMsg"), "Sending password reset email…");
+    await api("/api/auth/reset-password", {
+      method: "POST",
+      body: { email, redirectTo: window.location.origin + "/?reset=1" }
+    });
+    setMsg($("authMsg"), "If that email has an account, a reset email has been sent.", "ok");
   } catch (e) {
-    setMsg(msg, e.message, "error");
-    if (e.status === 428) tab("account");
-  } finally {
-    $("buildBtn").disabled = false;
+    setMsg($("authMsg"), e.message, "error");
   }
-}
-
-function renderResult(data) {
-  const s = data.script, st = data.stats;
-  $("result").innerHTML = `
-    <div class="row between"><b style="color:var(--gold)">${esc(s.name)}</b><span class="chip gold">${esc(s.engineName)}</span></div>
-    <div class="muted small" style="margin:8px 0">build ${esc(st.buildId)} · ${fmtBytes(st.sourceBytes)} in → ${fmtBytes(st.outputBytes)} out · ratio ${st.ratio ?? "—"}</div>
-    <div class="small muted">Passes: ${(st.passes || []).map((p) => esc(p)).join(" → ")}</div>
-    ${st.renamed !== undefined ? '<div class="small muted">Identifiers renamed: ' + st.renamed + " · strings: " + (st.strings || 0) + " · numbers: " + (st.numbers || 0) + " · blocks: " + (st.chunks || 0) + "</div>" : ""}
-    ${(data.warnings || []).length ? '<div class="msg muted small">' + data.warnings.map(esc).join("<br>") + "</div>" : ""}
-    <label>Loader</label>
-    <div class="loader" id="resultLoader">${esc(data.loader)}</div>
-    <div class="row" style="margin-top:10px">
-      <button class="btn small" onclick="copyText(document.getElementById('resultLoader').textContent, this)">Copy loader</button>
-      <button class="btn alt small" onclick="tab('scripts')">All scripts</button>
-    </div>`;
-}
-async function copyText(text, btn) {
-  try { await navigator.clipboard.writeText(text); if (btn) { btn.textContent = "Copied"; setTimeout(() => (btn.textContent = "Copy loader"), 1200); } }
-  catch { window.prompt("Copy this:", text); }
-}
-
-async function loadScripts() {
-  const box = $("scripts");
-  box.textContent = "Loading…";
-  try {
-    const { data } = await api("/api/scripts");
-    state.scripts = data.scripts || [];
-    renderScriptList();
-    renderShared(data.shared || []);
-    populateScriptPickers();
-  } catch (e) { box.innerHTML = '<div class="msg error">' + esc(e.message) + "</div>"; }
-}
-function renderScriptList() {
-  const box = $("scripts");
-  if (!state.scripts.length) { box.innerHTML = '<div class="muted">No scripts yet. Create your first build.</div>'; return; }
-  box.innerHTML = state.scripts.map((s) => `
-    <div class="script">
-      <div class="row between">
-        <b>${esc(s.name)}</b>
-        <div class="row">
-          <span class="chip ${s.key_required ? "gold" : ""}">${s.key_required ? "key required" : "open"}</span>
-          <span class="chip">${esc(s.engineName)}</span>
-          <button class="btn alt small" onclick="viewScript('${s.id}','${esc(s.name).replace(/'/g, "")}')">View</button>
-          <button class="btn alt small" onclick="openEdit('${s.id}','${esc(s.name).replace(/'/g, "")}','${esc(s.engine)}')">Edit</button>
-          <button class="btn small" onclick="copyLoader('${s.id}', this)">Copy loader</button>
-          <button class="btn alt small" onclick="togglePublic('${s.id}', ${s.public ? "false" : "true"})">${s.public ? "Make private" : "Make public"}</button>
-          <button class="btn danger small" onclick="deleteScript('${s.id}')">Delete</button>
-        </div>
-      </div>
-      <div class="muted small">build ${esc(s.build_id)} · updated ${fmtDate(s.updated_at)} · ${fmtBytes(s.source_bytes)} → ${fmtBytes(s.output_bytes)}</div>
-      <div class="loader">loadstring(game:HttpGet(location and location.origin .. "/loader/${s.id}" or "/loader/${s.id}"))()</div>
-    </div>`).join("");
-}
-function renderShared(shared) {
-  $("sharedWithMe").innerHTML = shared.length
-    ? "<h4>Shared with you</h4>" + shared.map((s) => '<div class="small muted">script ' + esc(s.script_id) + " from " + esc(s.owner_username) + "</div>").join("")
-    : "";
-  $("sharedWithMe2").innerHTML = shared.length
-    ? shared.map((s) => '<div>script ' + esc(s.script_id) + " · owner " + esc(s.owner_username) + "</div>").join("")
-    : "Nothing yet.";
-}
-async function copyLoader(id, btn) {
-  await copyText('loadstring(game:HttpGet("' + location.origin + "/loader/" + id + '"))()', btn);
-}
-async function viewScript(id, name) {
-  const { data } = await api("/api/scripts/" + id + "/view", { text: true });
-  const w = window.open("", "_blank");
-  if (w) { w.document.write("<title>" + esc(name) + " — LuaLune</title><pre style='white-space:pre-wrap;font:12px ui-monospace,monospace;background:#0b0906;color:#fff8df;padding:16px'>" + esc(data) + "</pre>"); w.document.close(); }
-  else setMsg($("createMsg"), "Allow pop-ups to view the protected build.", "error");
-}
-async function deleteScript(id) {
-  if (!confirm("Delete this script? The loader URL stops working immediately.")) return;
-  await api("/api/scripts/" + id, { method: "DELETE" });
-  loadScripts();
-}
-async function togglePublic(id, makePublic) {
-  await api("/api/scripts/" + id, { method: "PATCH", body: { public: makePublic } });
-  loadScripts();
-}
-
-/* --------------------------------------------------------------- edit flow */
-let editingId = null;
-function openEdit(id, name, engine) {
-  editingId = id;
-  $("editTitle").textContent = "Replace source for " + name;
-  $("editEngine").value = state.meta?.engines?.some((e) => e.id === engine) ? engine : "payload";
-  $("editSource").value = "";
-  $("editFile").value = "";
-  setMsg($("editMsg"), "");
-  $("editPanel").classList.remove("hidden");
-  $("editPanel").scrollIntoView({ behavior: "smooth", block: "center" });
-}
-function closeEdit() { editingId = null; $("editPanel").classList.add("hidden"); }
-$("editFile").addEventListener("change", async (event) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  if (file.size > 2 * 1024 * 1024) return setMsg($("editMsg"), "That file is bigger than 2 MB.", "error");
-  $("editSource").value = await file.text();
-  setMsg($("editMsg"), "Loaded " + file.name + " — press Re-obfuscate.", "ok");
 });
-async function saveEdit() {
-  const source = $("editSource").value;
-  if (!editingId) return;
-  if (!source.trim()) return setMsg($("editMsg"), "Paste or upload the new source first.", "error");
-  setMsg($("editMsg"), "Re-obfuscating…");
-  try {
-    const { data } = await api("/api/scripts/" + editingId + "/rebuild", { method: "POST", body: { source, engine: $("editEngine").value, ...state.options } });
-    const warnings = (data.warnings || []).length ? " " + data.warnings.join(" ") : "";
-    setMsg($("editMsg"), "Rebuilt as build " + data.stats.buildId + "." + warnings, "ok");
-    closeEdit();
-    loadScripts();
-  } catch (e) {
-    setMsg($("editMsg"), e.message, "error");
-    if (e.status === 428) { closeEdit(); tab("account"); }
-  }
-}
-
-/* -------------------------------------------------------------------- keys */
-async function loadKeys() {
-  try {
-    const { data } = await api("/api/keys");
-    state.keys = data.keys || [];
-    state.durations = data.durations || [];
-    $("keyDuration").innerHTML = state.durations.map((d) => '<option value="' + d.id + '">' + esc(d.label) + "</option>").join("");
-    renderKeys();
-  } catch (e) { $("keys").innerHTML = '<div class="msg error">' + esc(e.message) + "</div>"; }
-}
-function renderKeys() {
-  $("keys").innerHTML = state.keys.length ? state.keys.map((k) => `
-    <div class="script">
-      <div class="row between">
-        <span class="mono" style="color:var(--gold)">${esc(k.value)}</span>
-        <span class="chip ${k.state === "active" ? "gold" : ""}">${esc(k.state)}</span>
-      </div>
-      <div class="tiny muted">${esc(k.label || "no label")} · uses ${k.uses || 0} · hwid ${esc(k.hwid || "unbound")} · expires ${k.expires_at ? fmtDate(k.expires_at) : "never"}</div>
-      <div class="row" style="margin-top:6px">
-        <button class="btn alt small" onclick="resetKey('${k.id}')">Reset HWID</button>
-        <button class="btn danger small" onclick="deleteKey('${k.id}')">Delete</button>
-      </div>
-    </div>`).join("") : '<div class="muted">No keys yet.</div>';
-}
-async function createKeys() {
-  const msg = $("keyMsg");
-  setMsg(msg, "Generating…");
-  try {
-    await api("/api/keys", { method: "POST", body: {
-      duration: $("keyDuration").value, amount: Number($("keyAmount").value) || 1,
-      script_id: $("keyScript").value || null, label: $("keyLabel").value.trim(),
-    }});
-    setMsg(msg, "Keys created.", "ok");
-    loadKeys();
-  } catch (e) { setMsg(msg, e.message, "error"); }
-}
-async function resetKey(id) { await api("/api/keys/" + id + "/reset", { method: "POST" }); loadKeys(); }
-async function deleteKey(id) { if (confirm("Delete this key?")) { await api("/api/keys/" + id, { method: "DELETE" }); loadKeys(); } }
-
-/* --------------------------------------------------------------- workspace */
-async function loadWorkspace() {
-  try {
-    const [invites, shares] = await Promise.all([api("/api/invites"), api("/api/shares")]);
-    $("invites").innerHTML = (invites.data.invites || []).length
-      ? invites.data.invites.map((i) => '<div class="row between" style="padding:6px 0;border-bottom:1px dashed var(--line-soft)"><span class="mono">' + esc(i.code) + '</span><span class="muted">' + esc(i.kind) + (i.plan ? " · " + esc(i.plan) : "") + " · " + i.uses + "/" + i.max_uses + ' <button class="btn danger small" onclick="deleteInvite(\'' + i.id + '\')">×</button></span></div>').join("")
-      : '<span class="muted">No invite codes yet.</span>';
-    renderShared(shares.data.withMe || []);
-  } catch (e) { $("invites").innerHTML = '<span class="msg error">' + esc(e.message) + "</span>"; }
-}
-async function createInvite() {
-  const msg = $("inviteMsg");
-  try {
-    const { data } = await api("/api/invites", { method: "POST", body: {
-      kind: $("inviteKind").value, plan: $("invitePlan").value, max_uses: Number($("inviteUses").value) || 1,
-    }});
-    setMsg(msg, "Invite " + data.invite.code + " created — copy it now.", "ok");
-    loadWorkspace();
-  } catch (e) { setMsg(msg, e.message, "error"); }
-}
-async function deleteInvite(id) { await api("/api/invites/" + id, { method: "DELETE" }); loadWorkspace(); }
-async function createShare() {
-  const msg = $("shareMsg");
-  try {
-    await api("/api/shares", { method: "POST", body: { username: $("shareUser").value.trim(), script_id: $("shareScript").value || null } });
-    setMsg(msg, "Shared.", "ok");
-    loadWorkspace();
-  } catch (e) { setMsg(msg, e.message, "error"); }
-}
-async function redeem() {
-  const msg = $("redeemMsg");
-  try {
-    const { data } = await api("/api/invites/redeem", { method: "POST", body: { code: $("redeemCode").value.trim() } });
-    setMsg(msg, data.message || "Redeemed.", "ok");
-    await refreshMe();
-    loadWorkspace();
-  } catch (e) { setMsg(msg, e.message, "error"); }
-}
-function populateScriptPickers() {
-  const options = ['<option value="">— none —</option>'].concat(state.scripts.map((s) => '<option value="' + s.id + '">' + esc(s.name) + "</option>")).join("");
-  ["keyScript", "shareScript", "logScript"].forEach((id) => { if ($(id)) $(id).innerHTML = options; });
-}
-
-/* ----------------------------------------------------------------- account */
-function renderAccount(me) {
-  state.user = me.user; state.profile = me.profile;
-  $("who").textContent = me.user.username;
-  $("planChip").textContent = me.profile.plan;
-  const limit = me.usage?.limit ?? 0;
-  $("usageMetric").textContent = me.usage ? me.usage.count + (limit === -1 ? "" : " / " + limit) : "–";
-  $("usageNote").textContent = "window " + (me.usage?.month || "—") + (limit === -1 ? " · unlimited" : "");
-  $("tab-admin").classList.toggle("hidden", !(me.profile.role === "admin"));
-  $("accountInfo").innerHTML = `
-    <div>username: <b>${esc(me.user.username)}</b></div>
-    <div>plan: <b>${esc(me.profile.plan)}</b></div>
-    <div>status: ${esc(me.profile.status)}</div>
-    <div>terms: ${esc(me.profile.tos_version || "not accepted")} ${me.tosUpdateRequired ? '<button class="btn small" onclick="acceptTos()">Accept new terms</button>' : ""}</div>
-    <div>member since: ${fmtDate(me.profile.created_at)}</div>`;
-}
-async function refreshMe() {
-  try {
-    const { data } = await api("/api/auth/me");
-    renderAccount(data);
-    const { data: list } = await api("/api/scripts");
-    state.scripts = list.scripts || [];
-    $("scriptMetric").textContent = state.scripts.length;
-    $("scriptNote").textContent = "of " + ((state.meta?.plans || []).find((p) => p.id === state.profile.plan)?.limits.scripts === -1 ? "unlimited" : (state.meta?.plans || []).find((p) => p.id === state.profile.plan)?.limits.scripts ?? "—");
-    populateScriptPickers();
-  } catch { /* ignore */ }
-}
-async function acceptTos() {
-  await api("/api/tos/accept", { method: "POST", body: { version: state.meta?.tosVersion } });
-  await refreshMe();
-}
-async function loadLogs() {
-  const id = $("logScript").value;
-  if (!id) return setMsg($("logs"), "Pick a script first.", "muted");
-  try {
-    const { data } = await api("/api/scripts/" + id + "/logs");
-    $("logs").innerHTML = data.logs.length
-      ? "<table><thead><tr><th>when</th><th>status</th><th>key</th><th>hwid</th></tr></thead><tbody>" +
-        data.logs.map((l) => "<tr><td>" + fmtDate(l.created_at) + "</td><td>" + esc(l.status) + (l.code ? " (" + esc(l.code) + ")" : "") + "</td><td class='mono tiny'>" + esc(l.key_value || "—") + "</td><td class='tiny'>" + esc(l.hwid || "—") + "</td></tr>").join("") +
-        "</tbody></table>"
-      : '<span class="muted">No executions recorded yet.</span>';
-  } catch (e) { setMsg($("logs"), e.message, "error"); }
-}
-
-/* ------------------------------------------------------------------- admin */
-async function loadAdmin() {
-  try {
-    const [stats, users, ann] = await Promise.all([api("/api/admin/stats"), api("/api/admin/users"), api("/api/announcements")]);
-    const s = stats.data.stats;
-    $("adminStats").innerHTML = `
-      <div>users: <b>${s.users}</b></div><div>scripts: <b>${s.scripts}</b></div>
-      <div>keys: <b>${s.keys}</b></div><div>executions: <b>${s.executions}</b></div>
-      <div class="tiny">store ${esc(stats.data.store)} · auth ${esc(stats.data.auth)} · month ${esc(stats.data.month)}</div>`;
-    $("users").innerHTML = "<table><thead><tr><th>username</th><th>plan</th><th>status</th><th>actions</th></tr></thead><tbody>" +
-      users.data.users.map((u) => `<tr>
-        <td>${esc(u.username)}</td>
-        <td><select onchange="setUserPlan('${u.id}', this.value)">${["free", "pro", "premium"].map((p) => '<option ' + (p === u.plan ? "selected" : "") + ">" + p + "</option>").join("")}</select></td>
-        <td>${esc(u.status)}</td>
-        <td><button class="btn alt small" onclick="setUserStatus('${u.id}','active')">Restore</button>
-            <button class="btn alt small" onclick="setUserStatus('${u.id}','suspended')">Suspend</button>
-            <button class="btn danger small" onclick="setUserStatus('${u.id}','terminated')">Terminate</button></td>
-      </tr>`).join("") + "</tbody></table>";
-    $("annList").innerHTML = (ann.data.announcements || []).map((a) => '<div class="row between" style="padding:4px 0"><span>' + esc(a.title) + '</span><button class="btn danger small" onclick="deleteAnnouncement(\'' + a.id + '\')">×</button></div>').join("");
-  } catch (e) { $("adminStats").innerHTML = '<span class="msg error">' + esc(e.message) + "</span>"; }
-}
-async function setUserPlan(id, plan) { await api("/api/admin/users/" + id, { method: "PATCH", body: { plan } }); loadAdmin(); }
-async function setUserStatus(id, status) {
-  const body = { status };
-  if (status === "suspended") body.suspended_until = new Date(Date.now() + 7 * 86400000).toISOString();
-  await api("/api/admin/users/" + id, { method: "PATCH", body });
-  loadAdmin();
-}
-async function broadcast() {
-  try {
-    await api("/api/admin/announcements", { method: "POST", body: { title: $("annTitle").value.trim(), body: $("annBody").value.trim() } });
-    setMsg($("annMsg"), "Published.", "ok");
-    loadAnnouncements(); loadAdmin();
-  } catch (e) { setMsg($("annMsg"), e.message, "error"); }
-}
-async function deleteAnnouncement(id) { await api("/api/admin/announcements/" + id, { method: "DELETE" }); loadAnnouncements(); loadAdmin(); }
-
-/* -------------------------------------------------------------------- init */
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("dashboard").classList.contains("hidden")) { /* keep focus */ } });
-boot();
-</script>
-</body>
-</html>
