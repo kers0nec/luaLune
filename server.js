@@ -13,7 +13,6 @@ import { obfuscate, ENGINES } from "./lib/obfuscator.js";
 import * as lune from "./lib/lune.js";
 import { buildLoader, denialLoader, loaderSnippet } from "./lib/loader.js";
 import { PLANS, planFor, limit, checkLimit, monthKey, publicPlans } from "./lib/plans.js";
-import { issueChallenge, verifyChallenge, solve } from "./lib/captcha.js";
 import { TOS_VERSION, tosSummary } from "./lib/tos.js";
 import { createStore } from "./lib/store.js";
 import { createAuth, normalizeUsername, isLocalEmail } from "./lib/auth.js";
@@ -30,10 +29,11 @@ app.set("trust proxy", true);
 app.use(express.json({ limit: "4mb" }));
 app.use(express.text({ limit: "4mb", type: ["text/plain", "application/x-lua"] }));
 
-// Rate limits: sign-in attempts are cheap to spam, so they get the tightest budget.
+// Sign-in and reset attempts are cheap to spam, so they get the tightest budget.
+// Account creation intentionally has no application-side throttle or human check.
 // The loader answers plain text (an executor cannot read JSON), so it is handed a
 // denial stub instead when a client floods it.
-const authLimiter = createLimiter({ windowMs: 10 * 60_000, max: Number(process.env.LUALUNE_RATE_AUTH || 60), message: "Too many sign-in attempts. Wait a few minutes." });
+const signInLimiter = createLimiter({ windowMs: 10 * 60_000, max: Number(process.env.LUALUNE_RATE_AUTH || 60), message: "Too many sign-in or password-reset attempts. Wait a few minutes." });
 const buildLimiter = createLimiter({ windowMs: 60_000, max: Number(process.env.LUALUNE_RATE_BUILD || 30), message: "Slow down: too many builds per minute." });
 const loaderLimiter = createLimiter({
   windowMs: 60_000,
@@ -178,26 +178,12 @@ app.get("/api/announcements", async (_, res) => {
   res.json({ announcements: items.map(({ id, title, body, level, created_at, expires_at }) => ({ id, title, body, level, created_at, expires_at })) });
 });
 
-/* --------------------------------------------------------------- captcha */
-
-app.get("/api/captcha", (req, res) => {
-  const difficulty = Number(req.query.difficulty) || 16;
-  res.json(issueChallenge({ difficulty: Math.min(Math.max(difficulty, 8), 20) }));
-});
-
-/** Server-side solve endpoint, used by tests and by headless clients. */
-app.post("/api/captcha/solve", (req, res) => {
-  const { challenge, difficulty } = req.body || {};
-  if (!challenge) return fail(res, 400, "Challenge required.");
-  res.json(solve(challenge, difficulty || 16));
-});
-
 /* ------------------------------------------------------------------ auth */
 
-app.post("/api/auth/signup", authLimiter, async (req, res) => {
+// Signup is deliberately direct: no CAPTCHA and no application-side rate limit.
+// Authentication, validation, and duplicate-account errors still come from auth.signup.
+app.post("/api/auth/signup", async (req, res) => {
   const { username, email, password, redirectTo } = req.body || {};
-  const captcha = verifyChallenge(req.body?.captcha, req.body?.captchaNonce, {});
-  if (!captcha.ok) return fail(res, 400, captcha.reason);
 
   let result;
   try {
@@ -217,7 +203,7 @@ app.post("/api/auth/signup", authLimiter, async (req, res) => {
   res.status(201).json(result);
 });
 
-app.post("/api/auth/reset-password", authLimiter, async (req, res) => {
+app.post("/api/auth/reset-password", signInLimiter, async (req, res) => {
   const email = String(req.body?.email || "").trim().toLowerCase();
   const redirectTo = String(req.body?.redirectTo || process.env.LUALUNE_AUTH_REDIRECT || "");
   const result = await auth.resetPassword(email, redirectTo || undefined);
@@ -225,7 +211,7 @@ app.post("/api/auth/reset-password", authLimiter, async (req, res) => {
   res.json({ ok: true, message: "If an account exists for that email, a password reset email has been sent." });
 });
 
-app.post("/api/auth/login", authLimiter, async (req, res) => {
+app.post("/api/auth/login", signInLimiter, async (req, res) => {
   const { identifier, username, email, password } = req.body || {};
   const result = await auth.login({ identifier: identifier || username || email, password });
   if (result.error) return fail(res, 401, result.error);

@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 process.env.NODE_ENV = "test";
 process.env.SUPABASE_URL = "";
 process.env.SUPABASE_ANON_KEY = "";
+// Keep the auth threshold tiny so this file proves signup does not use it.
+process.env.LUALUNE_RATE_AUTH = "3";
 // Fresh auth state per run so repeated `npm test` never sees stale accounts.
 process.env.LUALUNE_DATA_DIR = (await import("node:fs")).mkdtempSync((await import("node:os")).tmpdir() + "/lualune-test-");
 
@@ -38,11 +40,9 @@ async function api(pathname, { method = "GET", token, body, raw } = {}) {
 }
 
 async function signup(username, password = "password123") {
-  const challenge = await api("/api/captcha");
-  const solved = await api("/api/captcha/solve", { method: "POST", body: { challenge: challenge.challenge, difficulty: challenge.difficulty } });
   const res = await api("/api/auth/signup", {
     method: "POST",
-    body: { username, password, captcha: challenge.challenge, captchaNonce: solved.nonce },
+    body: { username, password },
   });
   assert.equal(res.status, 201, JSON.stringify(res));
   return res.session.access_token;
@@ -70,13 +70,19 @@ test("public endpoints are LuaLune branded and discord free", async () => {
   assert.ok(tos.sections.length >= 5);
 });
 
-test("signup needs a solved human check", async () => {
-  const without = await api("/api/auth/signup", { method: "POST", body: { username: "nocaptcha", password: "password123" } });
-  assert.equal(without.status, 400);
-  assert.match(without.error, /Human check/);
+test("signup has no CAPTCHA or application-side slow mode", async () => {
+  const direct = await api("/api/auth/signup", { method: "POST", body: { username: "nocaptcha", password: "password123" } });
+  assert.equal(direct.status, 201, JSON.stringify(direct));
+  assert.ok(direct.session?.access_token);
 
-  const badNonce = await api("/api/auth/signup", { method: "POST", body: { username: "badnonce", password: "password123", captcha: "deadbeef", captchaNonce: "1" } });
-  assert.equal(badNonce.status, 400);
+  // LUALUNE_RATE_AUTH applies to sign-in and reset attempts, not new accounts.
+  const created = await Promise.all(Array.from({ length: 4 }, (_, i) =>
+    api("/api/auth/signup", { method: "POST", body: { username: `openuser${i}`, password: "password123" } }),
+  ));
+  assert.ok(created.every((result) => result.status === 201), JSON.stringify(created.find((result) => result.status !== 201)));
+
+  const removed = await api("/api/captcha");
+  assert.equal(removed.status, 404);
 });
 
 test("signup, login and session round trip", async () => {

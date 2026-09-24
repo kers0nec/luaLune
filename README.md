@@ -90,7 +90,7 @@ npm test           # 65 tests: obfuscator, protections, auth, API, fuzz round tr
 | `LUALUNE_DATA_DIR` | Where local-mode auth state is persisted (default `./data`). |
 | `LUALUNE_DOMAIN` | Domain shown in metadata and used for log hashing salt. |
 | `LUALUNE_ADMINS` | Comma separated emails that always get admin access. |
-| `LUALUNE_RATE_AUTH` / `LUALUNE_RATE_BUILD` / `LUALUNE_RATE_LOADER` | Requests allowed per window (60 / 10 min, 30 / min, 240 / min by default). |
+| `LUALUNE_RATE_AUTH` / `LUALUNE_RATE_BUILD` / `LUALUNE_RATE_LOADER` | Per-window limits for sign-in/password-reset attempts (60 / 10 min), builds (30 / min) and loader requests (240 / min). Signup is not rate limited by LuaLune. |
 
 ### Sign-in troubleshooting
 
@@ -113,7 +113,6 @@ npm test           # 65 tests: obfuscator, protections, auth, API, fuzz round tr
 | `GET` | `/healthz` | Health check → `LuaLune OK`. |
 | `GET` | `/api/meta` | Brand, engines, plans, terms version. |
 | `GET` | `/api/plans`, `/api/tos`, `/api/announcements` | Public catalogue. |
-| `GET` | `/api/captcha` | Proof-of-work human check challenge. |
 | `POST` | `/api/auth/signup`, `/api/auth/login` | Username + password (email optional). |
 | `GET` | `/api/auth/me`, `POST /api/auth/logout` | Session. |
 | `POST` | `/api/tos/accept` | Accept the current terms version. |
@@ -156,7 +155,6 @@ server.js            Express API, loader endpoint, static host
 lib/obfuscator.js    the LuaLune Obfuscator (lexer, passes, payload engine)
 lib/plans.js         plan catalogue and limit checks
 lib/loader.js        loader banners, snippets and denial stubs
-lib/captcha.js       proof-of-work human check
 lib/ratelimit.js     fixed window rate limiting (api, builds, loader)
 lib/lune.js          optional Lune Obfuscator (Prometheus) engine + attribution
 lib/auth.js          Supabase auth or built-in scrypt auth
@@ -170,8 +168,8 @@ schema.sql           Supabase schema + row level security
 
 ## Hardening
 
-- Human check on signup (proof of work, no third party and no tracking).
-- Per-IP rate limits on sign-in, builds and the loader; a throttled loader call
+- Signup is direct: no CAPTCHA and no application-side account-creation throttle.
+- Per-IP rate limits on sign-in/password-reset attempts, builds and the loader; a throttled loader call
   still returns Lua (a denial stub), never HTML.
 - Loader requests are checked server side for key, expiry, key/script binding and
   HWID before any protected source leaves the server.

@@ -99,7 +99,7 @@ that appear at the top of every page.
 ## 5. What to verify after deploying
 
 - `GET /healthz` returns `LuaLune OK`.
-- Signing up requires the human check to be solved in the browser.
+- Signing up creates an account immediately, with no CAPTCHA or application-side signup throttle.
 - Creating a script returns a loader URL, and fetching that URL returns text.
 - Each engine builds and runs: `payload`, `flow`, `vault` (and `none`).
 - `npm test` passes locally before you deploy — it executes generated builds in a
