@@ -60,8 +60,8 @@
   <section id="auth" class="auth hidden">
     <div class="panel">
       <div class="tabs">
-        <button id="loginTab" class="tab active" onclick="setMode('login')">Sign in</button>
-        <button id="signupTab" class="tab" onclick="setMode('signup')">Create account</button>
+        <button type="button" id="loginTab" class="tab active" onclick="setMode('login')">Sign in</button>
+        <button type="button" id="signupTab" class="tab" onclick="setMode('signup')">Create account</button>
       </div>
       <form id="authForm">
         <div class="eyebrow">Account</div>
@@ -79,7 +79,11 @@
           </label>
         </div>
         <div id="authMsg" class="msg muted"></div>
-        <button class="btn" style="width:100%;margin-top:8px" id="authBtn">Sign in</button>
+        <div class="row between" style="margin-top:14px">
+          <span class="muted small">Use your LuaLune username to sign in.</span>
+          <button type="button" class="linkbtn" onclick="forgotPassword()">Forgot password?</button>
+        </div>
+        <button type="submit" class="btn" style="width:100%;margin-top:8px" id="authBtn">Sign in</button>
       </form>
     </div>
   </section>
