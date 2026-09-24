@@ -36,20 +36,28 @@ function obfuscate(source,strength="strong"){
     if(strength==="strong") v=v^k2[i%k2.length]^((i*17+73)&255);
     out[i]=v;
   }
-  return {key:k1.toString("hex")+":"+k2.toString("hex"),payload:out.toString("hex")};
+  const key=(strength==="strong"?"S:":"L:")+k1.toString("hex")+(strength==="strong"?":"+k2.toString("hex"):"");
+  return {key,payload:out.toString("hex")};
 }
 function loader(payload,key){
   return `-- LuaLune protected build
 local __p="${payload}"
 local __keys="${key}"
-local __a,__b=__keys:match("([^:]+):([^:]+)")
+local __mode,__a,__b=__keys:match("^([SL]):([^:]+):?(.*)$")
 local __o={}
 for __i=1,#__p,2 do
   local __n=(__i+1)/2
   local __v=tonumber(__p:sub(__i,__i+1),16)
-  local __k1=tonumber(__a:sub(((__n-1)%16)*2+1,((__n-1)%16)*2+2),16)
-  local __k2=tonumber(__b:sub(((__n-1)%16)*2+1,((__n-1)%16)*2+2),16)
-  if __b then __v=bit32.bxor(__v,(__n-1)*31%256,__k1,__k2,(__n-1)*17%256,73) else __v=bit32.bxor(__v,__keys:byte((__n-1)%#__keys+1)) end
+  if __mode=="S" then
+    local __k1=tonumber(__a:sub(((__n-1)%16)*2+1,((__n-1)%16)*2+2),16)
+    local __k2=tonumber(__b:sub(((__n-1)%16)*2+1,((__n-1)%16)*2+2),16)
+    __v=bit32.bxor(__v,(__n-1)*31%256,__k1,__k2,(__n-1)*17%256,73)
+  elseif __mode=="L" then
+    local __k1=tonumber(__a:sub(((__n-1)%16)*2+1,((__n-1)%16)*2+2),16)
+    __v=bit32.bxor(__v,(__n-1)*31%256,__k1)
+  else
+    __v=bit32.bxor(__v,__keys:byte((__n-1)%#__keys+1))
+  end
   __o[#__o+1]=string.char(__v)
 end
 local __fn=loadstring(table.concat(__o))
