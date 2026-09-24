@@ -105,7 +105,7 @@ app.post("/api/scripts",auth,async(req,res)=>{
   if(name.length<1||name.length>80) return res.status(400).json({error:"Name must be 1-80 characters."});
   if(source.length<1||source.length>500000) return res.status(400).json({error:"Script must be 1-500,000 characters."});
   const {key,payload,raw}=await obfuscate(source,strength);
-  const {data,error}=await req.sb.from("scripts").insert({owner_id:req.user.id,name,payload,secret_key:key,public:true}).select("id,name,created_at,updated_at,public").single();
+  const {data,error}=await req.sb.from("scripts").insert({owner_id:req.user.id,name,payload:raw,secret_key:key,public:true}).select("id,name,created_at,updated_at,public").single();
   if(error) return res.status(500).json({error:error.message});
   const loaderUrl=req.protocol+"://"+req.get("host")+"/loader/"+data.id;
   res.status(201).json({script:data,loader:"loadstring(game:HttpGet("+JSON.stringify(loaderUrl)+"))()",preview:raw});
@@ -120,7 +120,7 @@ app.delete("/api/scripts/:id",auth,async(req,res)=>{
 app.get("/loader/:id",async(req,res)=>{
   const {data,error}=await sb().from("scripts").select("payload,secret_key").eq("id",req.params.id).eq("public",true).single();
   if(error||!data) return res.status(404).type("text/plain").send("-- LuaLune: script not found");
-  res.type("text/plain").send(loader(data.payload,data.secret_key));
+  res.type("text/plain").send(String(data.secret_key||"").startsWith("LUNE:") ? String(data.payload||"") : loader(data.payload,data.secret_key));
 });
 
 app.use(express.static(__dirname));
