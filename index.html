@@ -553,6 +553,6 @@ async function forgotPassword() {
   } catch (e) {
     setMsg($("authMsg"), e.message, "error");
   }
-});
+}
 
 handlePasswordReset().then(() => boot()).catch((e) => console.error('LuaLune boot failed:', e));
