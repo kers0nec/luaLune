@@ -82,7 +82,9 @@ async function authed(req, res, next) {
 
 function adminOnly(req, res, next) {
   const admins = String(process.env.LUALUNE_ADMINS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  const isAdmin = req.profile?.role === "admin" || admins.includes(String(req.user?.email || "").toLowerCase());
+  const isAdmin = req.profile?.role === "admin" ||
+    admins.includes(String(req.user?.username || "").toLowerCase()) ||
+    admins.includes(String(req.user?.email || "").toLowerCase());
   if (!isAdmin) return fail(res, 403, "Admin access required.");
   next();
 }
@@ -285,7 +287,7 @@ app.get("/api/scripts", authed, async (req, res) => {
 
 app.post("/api/scripts", authed, buildLimiter, async (req, res) => {
   if (!(await ensureTos(req, res))) return;
-  const name = String(req.body?.name || "").trim();
+  const name = String(req.body?.name || "").trim() || `script-${Date.now().toString(36)}`;
   const source = typeof req.body?.source === "string" ? req.body.source : "";
   if (name.length < 1 || name.length > 80) return fail(res, 400, "Name must be 1-80 characters.");
   if (source.length < 1) return fail(res, 400, "Script source is required.");
@@ -299,7 +301,12 @@ app.post("/api/scripts", authed, buildLimiter, async (req, res) => {
   const usageCheck = checkLimit(req.plan, "obfuscationsPerMonth", 0, usage.month, usage);
   if (!usageCheck.allowed) return fail(res, 402, usageCheck.reason, { upgrade: true });
 
-  const built = await buildProtected(source, options);
+  let built;
+  try {
+    built = await buildProtected(source, options);
+  } catch (err) {
+    return fail(res, 400, err.message || "Failed to obfuscate script.");
+  }
   const script = await store.createScript({
     owner_id: req.user.id,
     name,
@@ -343,7 +350,12 @@ app.post("/api/scripts/:id/rebuild", authed, buildLimiter, async (req, res) => {
   const usageCheck = checkLimit(req.plan, "obfuscationsPerMonth", 0, usage.month, usage);
   if (!usageCheck.allowed) return fail(res, 402, usageCheck.reason, { upgrade: true });
 
-  const built = await buildProtected(source, obfuscatorOptions(req));
+  let built;
+  try {
+    built = await buildProtected(source, obfuscatorOptions(req));
+  } catch (err) {
+    return fail(res, 400, err.message || "Failed to rebuild script.");
+  }
   const updated = await store.updateScript(script.id, {
     engine: built.engine,
     build_id: built.stats.buildId,
@@ -706,6 +718,11 @@ app.use(express.static(__dirname, { extensions: ["html"] }));
 app.use((req, res) => {
   if (req.path.startsWith("/api/") || req.path.startsWith("/loader/")) return res.status(404).json({ error: "Not found" });
   res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ error: err.message || "Internal server error" });
 });
 
 const originOf = (req) => `${req.protocol}://${req.get("host")}`;

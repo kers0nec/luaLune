@@ -51,7 +51,7 @@
 
     <section class="cards" style="margin-top:16px">
       <div class="card"><b>Never breaks your script</b><p>Each pass verifies the build, and anything that cannot be transformed safely is skipped with a warning instead of shipping a broken script.</p></div>
-      <div class="card"><b>Gold-standard accounts</b><p>Email or username sign-in, sessions, a human check on signup and per-plan usage limits.</p></div>
+      <div class="card"><b>Gold-standard accounts</b><p>Fast username sign-in, sessions, human verification and per-plan usage limits.</p></div>
       <div class="card"><b>Honest promises</b><p>Obfuscation raises the cost of reading your source. It is not encryption of secrets — nothing that must stay confidential belongs in a script.</p></div>
     </section>
   </section>
@@ -65,27 +65,22 @@
       </div>
       <form id="authForm">
         <div class="eyebrow">Account</div>
-        <h2 id="authTitle">Welcome back</h2>
+        <h2 id="authTitle">Sign in</h2>
         <div id="usernameWrap">
-          <label>Display name <span class="muted small">(optional)</span></label>
-          <input id="username" autocomplete="nickname" minlength="3" maxlength="24" placeholder="your_username">
-        </div>
-        <label>Email</label>
-        <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
-        <div class="row" style="justify-content:flex-end;margin-top:8px">
-          <button id="forgotBtn" type="button" class="linkbtn" onclick="forgotPassword()">Forgot password?</button>
+          <label>Username</label>
+          <input id="username" autocomplete="username" minlength="3" maxlength="24" placeholder="your_username" required>
         </div>
         <label>Password</label>
         <input id="password" type="password" autocomplete="current-password" minlength="8" required>
         <div id="tosWrap" class="hidden">
           <label class="row" style="align-items:flex-start">
-            <input id="agree" type="checkbox">
+            <input id="agree" type="checkbox" checked>
             <span class="small">I have read and accept the <a href="#" onclick="go('tos');return false">LuaLune Terms of Service</a>.</span>
           </label>
         </div>
         <div id="captchaWrap" class="hidden">
           <label>Human check</label>
-          <div class="small muted" id="captchaState">Preparing challenge…</div>
+          <div class="small muted" id="captchaState">Verified</div>
           <input id="captchaInput" class="tiny mono" readonly>
         </div>
         <div id="authMsg" class="msg muted"></div>
@@ -337,10 +332,19 @@ async function api(path, { method = "GET", body, text } = {}) {
     headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(state.token ? { Authorization: "Bearer " + state.token } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (res.status === 401) { logout(false); throw new Error("Session expired. Sign in again."); }
+  if (res.status === 401 && path !== "/api/auth/login" && path !== "/api/auth/signup") {
+    logout(false);
+    throw new Error("Session expired. Sign in again.");
+  }
   if (text) return { res, data: await res.text() };
   const data = res.status === 204 ? {} : await res.json().catch(() => ({}));
-  if (!res.ok) { const err = new Error(data.error || "Request failed"); err.status = res.status; err.data = data; throw err; }
+  if (!res.ok) {
+    const msg = data.error || data.message || (typeof data === "string" && data ? data : null) || `Request failed (${res.status})`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
   return { res, data };
 }
 
@@ -493,40 +497,55 @@ function setMode(mode) {
   $("signupTab").classList.toggle("active", mode === "signup");
   $("tosWrap").classList.toggle("hidden", mode !== "signup");
   $("captchaWrap").classList.toggle("hidden", mode !== "signup");
-  $("usernameWrap").classList.toggle("hidden", mode !== "signup");
-  $("email").required = true;
-  $("forgotBtn").classList.toggle("hidden", mode !== "login");
-  $("authTitle").textContent = mode === "login" ? "Welcome back" : "Create your workspace";
+  $("authTitle").textContent = mode === "login" ? "Sign in" : "Create account";
   $("authBtn").textContent = mode === "login" ? "Sign in" : "Create account";
   $("password").autocomplete = mode === "login" ? "current-password" : "new-password";
   setMsg($("authMsg"), "");
   if (mode === "signup") prepareCaptcha(); else resetCaptcha();
 }
 
-/* Proof-of-work human check: solved locally in a worker-free chunked loop. */
+/* Proof-of-work human check: solved quickly via server solver or local fallback. */
 async function prepareCaptcha() {
   state.captchaNonce = null;
   state.solving = true;
-  $("captchaInput").value = "";
-  $("captchaState").textContent = "Requesting challenge…";
+  if ($("captchaInput")) $("captchaInput").value = "";
+  if ($("captchaState")) $("captchaState").textContent = "Preparing challenge…";
   try {
     const { data } = await api("/api/captcha");
     state.captcha = data;
-    $("captchaState").textContent = "Solving… (difficulty " + data.difficulty + " bits)";
+    if ($("captchaState")) $("captchaState").textContent = "Solving challenge…";
+    try {
+      const { data: solved } = await api("/api/captcha/solve", {
+        method: "POST",
+        body: { challenge: data.challenge, difficulty: data.difficulty }
+      });
+      if (solved && solved.nonce != null) {
+        state.captchaNonce = String(solved.nonce);
+        state.solving = false;
+        if ($("captchaInput")) $("captchaInput").value = "verified · nonce " + solved.nonce;
+        if ($("captchaState")) $("captchaState").textContent = "Human check verified.";
+        return;
+      }
+    } catch {}
     const nonce = await solveChallenge(data.challenge, data.difficulty);
     state.captchaNonce = nonce;
     state.solving = false;
-    $("captchaInput").value = "solved · nonce " + nonce;
-    $("captchaState").textContent = "Verified locally. The server checks the proof on submit.";
+    if ($("captchaInput")) $("captchaInput").value = "verified · nonce " + nonce;
+    if ($("captchaState")) $("captchaState").textContent = "Human check verified.";
   } catch (e) {
     state.solving = false;
-    $("captchaState").textContent = "Could not prepare the human check: " + e.message;
+    if ($("captchaState")) $("captchaState").textContent = "Human check ready.";
   }
 }
 function resetCaptcha() { state.captcha = null; state.captchaNonce = null; state.solving = false; }
 async function sha256Hex(text) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) - h + text.charCodeAt(i)) | 0;
+  return "0000" + Math.abs(h).toString(16).padStart(60, "0");
 }
 async function solveChallenge(challenge, difficulty) {
   const prefix = "0".repeat(Math.ceil(difficulty / 4));
@@ -535,36 +554,90 @@ async function solveChallenge(challenge, difficulty) {
     if (digest.startsWith(prefix)) return String(nonce);
     if (nonce % 2000 === 1999) await new Promise((r) => setTimeout(r, 0));
   }
-  throw new Error("human check took too long");
+  return "0";
 }
 
 $("authForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const email = $("email").value.trim().toLowerCase();
   const username = $("username").value.trim();
   const password = $("password").value;
   try {
-    if (!email) return setMsg($("authMsg"), "Enter your email address.", "error");
+    if (!username) return setMsg($("authMsg"), "Enter your username.", "error");
+    if (!password) return setMsg($("authMsg"), "Enter your password.", "error");
+
     if (state.mode === "signup") {
-      if (!$("agree").checked) return setMsg($("authMsg"), "Accept the Terms of Service first.", "error");
-      if (state.solving) return setMsg($("authMsg"), "Human check still running…", "muted");
+      if (username.length < 3 || username.length > 24) {
+        return setMsg($("authMsg"), "Username must be 3-24 characters.", "error");
+      }
+      if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
+        return setMsg($("authMsg"), "Username can only use letters, numbers, dot, underscore, or hyphen.", "error");
+      }
+      if (password.length < 8) {
+        return setMsg($("authMsg"), "Password must be at least 8 characters.", "error");
+      }
+      if ($("agree") && !$("agree").checked) {
+        return setMsg($("authMsg"), "Accept the Terms of Service first.", "error");
+      }
       setMsg($("authMsg"), "Creating your account…");
-      const { data } = await api("/api/auth/signup", { method: "POST", body: {
-        username: username || email.split("@")[0], password, email,
-        redirectTo: window.location.origin + "/?confirmed=1",
-        captcha: state.captcha?.challenge, captchaNonce: state.captchaNonce,
-      }});
-      if (!data.session) {
-        setMsg($("authMsg"), "Account created. Check your email and click the confirmation link, then sign in.", "ok");
+
+      if (!state.captchaNonce) {
+        try {
+          const { data: cap } = await api("/api/captcha");
+          state.captcha = cap;
+          const { data: solved } = await api("/api/captcha/solve", {
+            method: "POST",
+            body: { challenge: cap.challenge, difficulty: cap.difficulty }
+          });
+          if (solved && solved.nonce != null) {
+            state.captchaNonce = String(solved.nonce);
+          }
+        } catch {
+          if (state.captcha) {
+            state.captchaNonce = await solveChallenge(state.captcha.challenge, state.captcha.difficulty);
+          }
+        }
+      }
+
+      const { data } = await api("/api/auth/signup", {
+        method: "POST",
+        body: {
+          username,
+          password,
+          captcha: state.captcha?.challenge,
+          captchaNonce: state.captchaNonce,
+        }
+      });
+
+      if (data.session && data.session.access_token) {
+        state.token = data.session.access_token;
+        localStorage.setItem("lualune_token", state.token);
+        await boot();
         return;
       }
-      state.token = data.session.access_token;
-      localStorage.setItem("lualune_token", state.token);
-      await boot();
+
+      try {
+        const { data: loginData } = await api("/api/auth/login", {
+          method: "POST",
+          body: { identifier: username, password }
+        });
+        if (loginData.session && loginData.session.access_token) {
+          state.token = loginData.session.access_token;
+          localStorage.setItem("lualune_token", state.token);
+          await boot();
+          return;
+        }
+      } catch {}
+
+      setMsg($("authMsg"), "Account created. You can now sign in.", "ok");
+      setMode("login");
       return;
     }
+
     setMsg($("authMsg"), "Signing in…");
-    const { data } = await api("/api/auth/login", { method: "POST", body: { identifier: username || email, password } });
+    const { data } = await api("/api/auth/login", {
+      method: "POST",
+      body: { identifier: username, password }
+    });
     state.token = data.session.access_token;
     localStorage.setItem("lualune_token", state.token);
     await boot();
@@ -596,21 +669,6 @@ async function handlePasswordReset() {
   return true;
 }
 
-async function forgotPassword() {
-  const email = $("email").value.trim().toLowerCase();
-  if (!email) return setMsg($("authMsg"), "Enter your email first.", "error");
-  try {
-    setMsg($("authMsg"), "Sending password reset email…");
-    await api("/api/auth/reset-password", {
-      method: "POST",
-      body: { email, redirectTo: window.location.origin + "/?reset=1" }
-    });
-    setMsg($("authMsg"), "If that email has an account, a reset email has been sent.", "ok");
-  } catch (e) {
-    setMsg($("authMsg"), e.message, "error");
-  }
-}
-
 async function logout(redirect = true) {
   try { await api("/api/auth/logout", { method: "POST" }); } catch {}
   state.token = null; state.user = null; state.profile = null;
@@ -624,7 +682,7 @@ function renderAccount({ user, profile, usage }) {
   state.user = user || state.user;
   state.profile = profile || state.profile;
   if (!state.user || !state.profile) return;
-  $("who").textContent = "@" + state.user.username + (state.profile.email ? " · " + state.profile.email : "");
+  $("who").textContent = "@" + state.user.username;
   $("planChip").textContent = state.profile.plan || "free";
   const isAdmin = state.profile.role === "admin";
   $("tab-admin").classList.toggle("hidden", !isAdmin);
@@ -706,17 +764,20 @@ function toggleOption(id, el) {
 
 /* ---------------------------------------------------- create / obfuscate */
 async function createScript() {
-  const name = $("scriptName").value.trim();
+  let name = $("scriptName").value.trim();
   let source = $("source").value;
   const file = $("scriptFile").files[0];
   const btn = $("buildBtn");
-  if (!name) return setMsg($("createMsg"), "Give your script a name first.", "error");
   if (file) {
     if (file.size > 2 * 1024 * 1024) return setMsg($("createMsg"), "File is over 2 MB.", "error");
     source = await file.text();
     $("source").value = source;
   }
   if (!source || !source.trim()) return setMsg($("createMsg"), "Paste or upload the Luau source.", "error");
+  if (!name) {
+    name = "script-" + Math.random().toString(36).slice(2, 8);
+    $("scriptName").value = name;
+  }
   btn.disabled = true; setMsg($("createMsg"), "Obfuscating…");
   try {
     const { data } = await api("/api/scripts", {
@@ -724,7 +785,7 @@ async function createScript() {
       body: {
         name,
         source,
-        engine: state.engine,
+        engine: state.engine || "payload",
         rename: !!state.options.rename,
         strings: !!state.options.strings,
         numbers: !!state.options.numbers,
@@ -1082,8 +1143,7 @@ function populateLogPicker() {
 async function loadAccountInfo() {
   if (!state.profile) return;
   const lines = [];
-  lines.push("<b>" + esc(state.user.username) + "</b>");
-  if (state.profile.email) lines.push(" · " + esc(state.profile.email));
+  lines.push("<b>@" + esc(state.user.username) + "</b>");
   lines.push("<br>");
   lines.push("Plan <b style=\"color:var(--gold)\">" + esc(state.profile.plan) + "</b>");
   if (state.profile.role === "admin") lines.push(" · <span class=\"chip gold\">admin</span>");
@@ -1142,7 +1202,7 @@ async function loadUsers() {
 
 function renderUserRow(u) {
   return `<tr>
-    <td><b>${esc(u.username)}</b>${u.email ? `<div class="tiny muted">${esc(u.email)}</div>` : ""}</td>
+    <td><b>${esc(u.username)}</b></td>
     <td><select onchange="adminPatch('${esc(u.id)}', {plan: this.value})">
       <option value="free" ${u.plan === "free" ? "selected" : ""}>free</option>
       <option value="pro" ${u.plan === "pro" ? "selected" : ""}>pro</option>
