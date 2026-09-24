@@ -105,6 +105,12 @@ input[type=checkbox]{width:auto}
 .tabs{display:flex;gap:8px;margin-bottom:20px}
 .tab{flex:1;padding:11px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:10px;cursor:pointer;font-weight:600}
 .tab.active{background:var(--gold);color:#171004;font-weight:800;border-color:var(--gold)}
+.linkbtn{background:transparent;border:0;color:var(--gold);cursor:pointer;font-size:13px;padding:0}
+.linkbtn:hover{text-decoration:underline}
+.select{appearance:none;background:#0d0a06}
+.engine.muted{opacity:.6}
+.engine.muted b{color:var(--muted)}
+.engine.muted{cursor:not-allowed}
 .msg{margin:12px 0;font-size:14px}
 .msg.error{color:var(--danger)}
 .msg.ok{color:var(--ok)}

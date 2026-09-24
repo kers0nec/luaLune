@@ -176,6 +176,7 @@
           <option value="payload">LuaLune Obfuscator</option>
           <option value="flow">LuaLune Obfuscator - Flow</option>
           <option value="vault">LuaLune Obfuscator - Vault</option>
+          <option value="lune">Lune Obfuscator</option>
           <option value="none">None</option>
         </select>
         <div id="editMsg" class="msg muted"></div>
@@ -317,14 +318,17 @@ const state = {
   user: null, profile: null, meta: null,
   engine: "payload",
   options: { rename: true, strings: true, numbers: true, junk: true, flatten: true, harden: true },
-  scripts: [], keys: [], durations: [],
+  scripts: [], keys: [], durations: [], invites: [], shares: [],
   captcha: null, captchaNonce: null, solving: false,
-  tosAccepted: false,
+  mode: "login",
+  activePane: "build",
+  editingScriptId: null,
 };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmtBytes = (n) => n > 1024 * 1024 ? (n / 1048576).toFixed(1) + " MB" : n > 1024 ? (n / 1024).toFixed(1) + " KB" : n + " B";
 const fmtDate = (v) => v ? new Date(v).toLocaleString() : "—";
+const setMsg = (el, message, kind = "muted") => { el.className = "msg " + kind; el.textContent = message; };
 
 /* -------------------------------------------------------------------- api */
 async function api(path, { method = "GET", body, text } = {}) {
@@ -339,17 +343,33 @@ async function api(path, { method = "GET", body, text } = {}) {
   if (!res.ok) { const err = new Error(data.error || "Request failed"); err.status = res.status; err.data = data; throw err; }
   return { res, data };
 }
-const setMsg = (el, message, kind = "muted") => { el.className = "msg " + kind; el.textContent = message; };
 
-/* ------------------------------------------------------------ navigation */
+/* --------------------------------------------------------- navigation */
 const PAGES = ["home", "auth", "dashboard", "plans", "tos"];
 function go(page) {
   PAGES.forEach((p) => $(p).classList.toggle("hidden", p !== page));
   if (page === "dashboard" && !state.token) return go("home");
   if (page === "plans") renderPlans();
+  if (page === "tos") renderTos();
   window.scrollTo({ top: 0 });
 }
 function showAuth(mode = "login") { go("auth"); setMode(mode); }
+
+/* ----------------------------------------------------------- dashboard tabs */
+function tab(name) {
+  state.activePane = name;
+  ["build", "scripts", "keys", "workspace", "account", "admin"].forEach((p) => {
+    const pane = $("pane-" + p);
+    if (pane) pane.classList.toggle("hidden", p !== name);
+    const btn = $("tab-" + p);
+    if (btn) { btn.classList.toggle("btn", p === name); btn.classList.toggle("alt", p !== name); }
+  });
+  if (name === "scripts") loadScripts();
+  if (name === "keys") loadKeys();
+  if (name === "workspace") { loadInvites(); loadShares(); populateScriptPickers(); }
+  if (name === "account") { loadAccountInfo(); populateLogPicker(); }
+  if (name === "admin") { loadAdminStats(); loadUsers(); loadAdminAnnouncements(); }
+}
 
 /* ------------------------------------------------------------------ boot */
 async function boot() {
@@ -366,7 +386,8 @@ async function boot() {
       renderAccount(data);
       go("dashboard");
       if (data.tosUpdateRequired) {
-        setMsg($("authMsg"), "Terms of Service updated — accept them in the Account tab.", "muted");
+        setMsg($("accountInfo"), "Terms of Service updated — accept them below.", "muted");
+        renderTosAccept();
         tab("account");
       }
       return;
@@ -374,22 +395,26 @@ async function boot() {
   }
   go("home");
 }
+
 function renderNav() {
   $("navActions").innerHTML = state.token
     ? '<button class="btn small" onclick="go(\'dashboard\')">Dashboard</button>'
     : '<button class="btn small" onclick="showAuth()">Sign in</button>';
 }
+
 async function loadMeta() {
   try { state.meta = (await api("/api/meta")).data; } catch { state.meta = null; }
   if (state.meta) {
     document.title = "LuaLune — " + state.meta.product;
     $("footerTag").textContent = state.meta.product;
     if ((state.meta.engines || []).some((e) => e.id === "lune")) {
-      $("engineAttribution").innerHTML = "Lune Obfuscator engine based on Prometheus by Elias Oelschner — " +
+      const att = $("engineAttribution");
+      att.innerHTML = "Lune Obfuscator engine based on Prometheus by Elias Oelschner — " +
         '<a href="https://github.com/prometheus-lua/Prometheus" target="_blank" rel="noreferrer">source</a> (MIT).';
     }
   }
 }
+
 async function loadAnnouncements() {
   try {
     const { data } = await api("/api/announcements");
@@ -418,7 +443,13 @@ function renderPlans() {
       </button>
     </div>`).join("");
 }
-function inviteFor(plan) { tab("workspace"); $("inviteKind").value = "plan"; $("invitePlan").value = plan; setMsg($("inviteMsg"), "Create an invite code for the " + plan + " plan and send it to whoever needs it.", "muted"); }
+function inviteFor(plan) {
+  if (!state.token) return showAuth("signup");
+  tab("workspace");
+  $("inviteKind").value = "plan";
+  $("invitePlan").value = plan;
+  setMsg($("inviteMsg"), "Create an invite code for the " + plan + " plan and send it to whoever needs it.", "muted");
+}
 
 /* -------------------------------------------------------------------- tos */
 async function renderTos() {
@@ -428,8 +459,32 @@ async function renderTos() {
     $("tosBody").innerHTML = data.sections.map((s) => "<h3>" + esc(s.title) + "</h3><p>" + esc(s.body) + "</p>").join("");
   } catch (e) { $("tosBody").innerHTML = '<p class="msg error">' + esc(e.message) + "</p>"; }
 }
-const _go = go;
-go = function (page) { _go(page); if (page === "tos") renderTos(); };
+
+function renderTosAccept() {
+  // Attach an inline accept widget to the account pane if ToS are out of date.
+  const info = $("accountInfo");
+  const wrap = document.createElement("div");
+  wrap.className = "msg";
+  wrap.style.marginTop = "10px";
+  wrap.innerHTML = '<button class="btn small" onclick="acceptTos()">Accept current Terms of Service</button>';
+  info.appendChild(wrap);
+}
+async function acceptTos() {
+  try {
+    await api("/api/tos/accept", { method: "POST", body: {} });
+    state.profile.tos_version = (state.meta && state.meta.tosVersion) || state.profile.tos_version;
+    if (state.user) {
+      try {
+        const { data } = await api("/api/auth/me");
+        state.user = data.user; state.profile = data.profile;
+        renderAccount(data);
+      } catch {}
+    }
+    setMsg($("accountInfo"), "Terms accepted. You can keep building.", "ok");
+  } catch (e) {
+    setMsg($("accountInfo"), e.message, "error");
+  }
+}
 
 /* ------------------------------------------------------------------- auth */
 function setMode(mode) {
@@ -478,7 +533,7 @@ async function solveChallenge(challenge, difficulty) {
   for (let nonce = 0; nonce < 5_000_000; nonce++) {
     const digest = await sha256Hex(challenge + nonce);
     if (digest.startsWith(prefix)) return String(nonce);
-    if (nonce % 2000 === 1999) await new Promise((r) => setTimeout(r, 0)); // keep the tab responsive
+    if (nonce % 2000 === 1999) await new Promise((r) => setTimeout(r, 0));
   }
   throw new Error("human check took too long");
 }
@@ -509,7 +564,7 @@ $("authForm").addEventListener("submit", async (event) => {
       return;
     }
     setMsg($("authMsg"), "Signing in…");
-    const { data } = await api("/api/auth/login", { method: "POST", body: { email, password } });
+    const { data } = await api("/api/auth/login", { method: "POST", body: { identifier: username || email, password } });
     state.token = data.session.access_token;
     localStorage.setItem("lualune_token", state.token);
     await boot();
@@ -556,4 +611,595 @@ async function forgotPassword() {
   }
 }
 
-handlePasswordReset().then(() => boot()).catch((e) => console.error('LuaLune boot failed:', e));
+async function logout(redirect = true) {
+  try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+  state.token = null; state.user = null; state.profile = null;
+  localStorage.removeItem("lualune_token");
+  renderNav();
+  if (redirect) go("home");
+}
+
+/* ---------------------------------------------------- dashboard header */
+function renderAccount({ user, profile, usage }) {
+  state.user = user || state.user;
+  state.profile = profile || state.profile;
+  if (!state.user || !state.profile) return;
+  $("who").textContent = "@" + state.user.username + (state.profile.email ? " · " + state.profile.email : "");
+  $("planChip").textContent = state.profile.plan || "free";
+  const isAdmin = state.profile.role === "admin";
+  $("tab-admin").classList.toggle("hidden", !isAdmin);
+
+  // Usage metrics
+  if (usage) {
+    const limitValue = usage.limit;
+    const used = usage.count || 0;
+    $("usageMetric").textContent = limitValue === -1 ? "Unlimited" : (used + " / " + limitValue);
+    $("usageNote").textContent = limitValue === -1
+      ? "No build cap on the " + state.profile.plan + " plan."
+      : "Resets on the 1st of each month.";
+
+    const scriptLimit = (state.meta?.plans || []).find((p) => p.id === state.profile.plan)?.limits?.scripts;
+    const scriptCount = usage.scripts ?? null;
+    $("scriptMetric").textContent = scriptLimit === -1 ? "Unlimited" : (scriptCount != null ? (scriptCount + " / " + scriptLimit) : "–");
+    $("scriptNote").textContent = scriptLimit === -1
+      ? "No script cap on the " + state.profile.plan + " plan."
+      : (scriptCount != null ? "Across all of your projects." : "Loading…");
+  }
+
+  // Pre-populate the build picker
+  renderEnginePicker();
+  populateScriptPickers();
+  populateLogPicker();
+}
+
+/* ---------------------------------------------------- engine / options */
+function renderEnginePicker() {
+  const wrap = $("enginePicker");
+  const engines = state.meta?.engines || [];
+  if (!engines.length) {
+    wrap.innerHTML = '<div class="muted small">Loading engines…</div>';
+    return;
+  }
+  wrap.innerHTML = engines.map((e) => `
+    <div class="engine ${state.engine === e.id ? "active" : ""} ${e.available === false ? "muted" : ""}" data-id="${esc(e.id)}" onclick="pickEngine('${esc(e.id)}')">
+      <b>${esc(e.name)}</b>
+      <small>${esc(e.tagline || "")}</small>
+      ${e.available === false ? '<div class="muted tiny" style="margin-top:6px">' + esc(e.unavailableReason || "Not installed on this instance") + '</div>' : ""}
+    </div>`).join("");
+  updateEngineNote();
+}
+function pickEngine(id) {
+  const eng = (state.meta?.engines || []).find((e) => e.id === id);
+  if (!eng) return;
+  if (eng.available === false) {
+    setMsg($("createMsg"), eng.unavailableReason || "That engine is not available on this instance.", "error");
+    return;
+  }
+  state.engine = id;
+  renderEnginePicker();
+}
+function updateEngineNote() {
+  const eng = (state.meta?.engines || []).find((e) => e.id === state.engine);
+  $("engineNote").textContent = eng ? eng.tagline || "" : "";
+}
+
+function renderOptions() {
+  const opts = [
+    { id: "rename", label: "Rename identifiers" },
+    { id: "strings", label: "Encrypt strings" },
+    { id: "numbers", label: "Split numbers" },
+    { id: "junk", label: "Inject decoys" },
+    { id: "flatten", label: "Flatten control flow" },
+    { id: "harden", label: "Anti-tamper" },
+  ];
+  $("options").innerHTML = opts.map((o) => `
+    <label class="toggle ${state.options[o.id] ? "on" : ""}" data-id="${o.id}" onclick="toggleOption('${o.id}', this)">
+      <input type="checkbox" ${state.options[o.id] ? "checked" : ""}>
+      <span>${o.label}</span>
+    </label>`).join("");
+}
+function toggleOption(id, el) {
+  state.options[id] = !state.options[id];
+  el.classList.toggle("on", state.options[id]);
+  el.querySelector("input").checked = state.options[id];
+}
+
+/* ---------------------------------------------------- create / obfuscate */
+async function createScript() {
+  const name = $("scriptName").value.trim();
+  let source = $("source").value;
+  const file = $("scriptFile").files[0];
+  const btn = $("buildBtn");
+  if (!name) return setMsg($("createMsg"), "Give your script a name first.", "error");
+  if (file) {
+    if (file.size > 2 * 1024 * 1024) return setMsg($("createMsg"), "File is over 2 MB.", "error");
+    source = await file.text();
+    $("source").value = source;
+  }
+  if (!source || !source.trim()) return setMsg($("createMsg"), "Paste or upload the Luau source.", "error");
+  btn.disabled = true; setMsg($("createMsg"), "Obfuscating…");
+  try {
+    const { data } = await api("/api/scripts", {
+      method: "POST",
+      body: {
+        name,
+        source,
+        engine: state.engine,
+        rename: !!state.options.rename,
+        strings: !!state.options.strings,
+        numbers: !!state.options.numbers,
+        junk: !!state.options.junk,
+        flatten: !!state.options.flatten,
+        harden: !!state.options.harden,
+        key_required: $("keyRequired").checked,
+        public: true,
+      },
+    });
+    setMsg($("createMsg"), "Done. Loader URL is ready below.", "ok");
+    $("result").innerHTML = renderResult(data);
+    try { await refreshUsage(); } catch {}
+    try { await loadScripts(); } catch {}
+  } catch (e) {
+    setMsg($("createMsg"), e.message, "error");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderResult(data) {
+  const stats = data.stats || {};
+  const warnings = data.warnings || [];
+  const loader = data.loader || "";
+  return `
+    <div class="row between"><b style="color:var(--gold)">${esc(data.script.name)}</b><span class="chip gold">${esc(data.script.engineName || data.script.engine)}</span></div>
+    <div class="muted tiny" style="margin-top:6px">build <code>${esc(stats.buildId || data.script.build_id || "")}</code> · ${fmtBytes(stats.sourceBytes || 0)} → ${fmtBytes(stats.outputBytes || 0)} · ${stats.ratio || "–"}×</div>
+    <label style="margin-top:14px">Loader URL</label>
+    <div class="loader">${esc(loader)}</div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn alt small" onclick="copyText(${JSON.stringify(loader)})">Copy loader</button>
+      <button class="btn alt small" onclick="tab('scripts')">Manage scripts</button>
+    </div>
+    ${(stats.passes && stats.passes.length) ? `<label style="margin-top:14px">Passes</label><div class="muted small">${stats.passes.map(esc).join(" · ")}</div>` : ""}
+    ${warnings.length ? `<label style="margin-top:14px">Warnings</label><div class="muted small">${warnings.map(esc).join("<br>")}</div>` : ""}
+  `;
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    setMsg($("createMsg"), "Loader copied.", "ok");
+  } catch {
+    setMsg($("createMsg"), "Could not copy automatically.", "error");
+  }
+}
+
+async function refreshUsage() {
+  const { data } = await api("/api/auth/me");
+  renderAccount(data);
+}
+
+/* ---------------------------------------------------- scripts list */
+async function loadScripts() {
+  if (!state.token) return;
+  try {
+    const { data } = await api("/api/scripts");
+    state.scripts = data.scripts || [];
+    const shared = data.shared || [];
+    $("scripts").innerHTML = state.scripts.length
+      ? state.scripts.map(renderScriptRow).join("")
+      : '<div class="muted small">No scripts yet. Hit "New script" to build your first one.</div>';
+    $("sharedWithMe").innerHTML = shared.length
+      ? `<h4>Shared with you</h4>` + shared.map(renderSharedRow).join("")
+      : "";
+    populateScriptPickers();
+  } catch (e) {
+    $("scripts").innerHTML = '<div class="msg error">' + esc(e.message) + "</div>";
+  }
+}
+
+function renderScriptRow(s) {
+  const loader = window.location.origin + "/loader/" + s.id;
+  const updated = fmtDate(s.updated_at || s.created_at);
+  return `
+    <div class="script">
+      <div class="row between">
+        <div>
+          <b style="color:var(--gold)">${esc(s.name)}</b>
+          <div class="muted tiny">${esc(s.engineName || s.engine)} · build ${esc(s.build_id)} · ${updated}</div>
+        </div>
+        <div class="row">
+          ${s.key_required ? '<span class="chip gold">key required</span>' : '<span class="chip">public</span>'}
+          <button class="btn alt small" onclick="openEdit('${esc(s.id)}', ${JSON.stringify(esc(s.name))})">Edit</button>
+          <button class="btn alt small" onclick="copyText(${JSON.stringify(loader)})">Copy URL</button>
+          <button class="btn alt small" onclick="toggleScript('${esc(s.id)}', ${!s.public})">${s.public ? "Make private" : "Make public"}</button>
+          <button class="btn danger small" onclick="deleteScript('${esc(s.id)}')">Delete</button>
+        </div>
+      </div>
+      <div class="loader">${esc(loader)}</div>
+    </div>`;
+}
+
+function renderSharedRow(s) {
+  return `
+    <div class="script">
+      <div class="row between">
+        <div>
+          <b>${esc(s.script_id || s.scriptId || "Script")}</b>
+          <div class="muted tiny">from ${esc(s.owner_username || s.owner || "teammate")}</div>
+        </div>
+        <div class="row">
+          <button class="btn alt small" onclick="copyText(${JSON.stringify(window.location.origin + "/loader/" + (s.script_id || s.scriptId))})">Copy URL</button>
+          <button class="btn danger small" onclick="deleteShare('${esc(s.id)}')">Remove</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function openEdit(id, name) {
+  state.editingScriptId = id;
+  $("editTitle").textContent = "Replace source — " + name;
+  $("editSource").value = "";
+  $("editFile").value = "";
+  $("editEngine").value = (state.scripts.find((s) => s.id === id) || {}).engine || "payload";
+  setMsg($("editMsg"), "");
+  $("editPanel").classList.remove("hidden");
+}
+function closeEdit() {
+  state.editingScriptId = null;
+  $("editPanel").classList.add("hidden");
+}
+async function saveEdit() {
+  if (!state.editingScriptId) return;
+  let source = $("editSource").value;
+  const file = $("editFile").files[0];
+  if (file) {
+    if (file.size > 2 * 1024 * 1024) return setMsg($("editMsg"), "File is over 2 MB.", "error");
+    source = await file.text();
+    $("editSource").value = source;
+  }
+  if (!source || !source.trim()) return setMsg($("editMsg"), "Paste or upload the new source first.", "error");
+  setMsg($("editMsg"), "Re-obfuscating…");
+  try {
+    const { data } = await api("/api/scripts/" + state.editingScriptId + "/rebuild", {
+      method: "POST",
+      body: {
+        source,
+        engine: $("editEngine").value,
+        rename: !!state.options.rename,
+        strings: !!state.options.strings,
+        numbers: !!state.options.numbers,
+        junk: !!state.options.junk,
+        flatten: !!state.options.flatten,
+        harden: !!state.options.harden,
+      },
+    });
+    setMsg($("editMsg"), "Re-obfuscated. Loader URL unchanged.", "ok");
+    await loadScripts();
+    closeEdit();
+  } catch (e) {
+    setMsg($("editMsg"), e.message, "error");
+  }
+}
+
+async function toggleScript(id, makePublic) {
+  try {
+    await api("/api/scripts/" + id, { method: "PATCH", body: { public: !!makePublic } });
+    await loadScripts();
+  } catch (e) {
+    setMsg($("createMsg"), e.message, "error");
+  }
+}
+async function deleteScript(id) {
+  if (!confirm("Delete this script and its loader URL? This cannot be undone.")) return;
+  try {
+    await api("/api/scripts/" + id, { method: "DELETE" });
+    await loadScripts();
+    await refreshUsage();
+  } catch (e) {
+    setMsg($("createMsg"), e.message, "error");
+  }
+}
+
+/* ---------------------------------------------------- keys */
+async function loadKeys() {
+  if (!state.token) return;
+  try {
+    const { data } = await api("/api/keys");
+    state.keys = data.keys || [];
+    state.durations = data.durations || [];
+    const durSel = $("keyDuration");
+    durSel.innerHTML = state.durations.map((d) => `<option value="${esc(d.id)}">${esc(d.label)}</option>`).join("");
+    populateScriptPickers();
+    $("keys").innerHTML = state.keys.length
+      ? '<table><thead><tr><th>Key</th><th>Script</th><th>State</th><th>HWID</th><th>Uses</th><th>Expires</th><th></th></tr></thead><tbody>' +
+        state.keys.map(renderKeyRow).join("") + "</tbody></table>"
+      : '<div class="muted small">No keys yet.</div>';
+  } catch (e) {
+    $("keys").innerHTML = '<div class="msg error">' + esc(e.message) + "</div>";
+  }
+}
+
+function renderKeyRow(k) {
+  const scriptName = (state.scripts.find((s) => s.id === k.script_id) || {}).name || "any";
+  return `<tr>
+    <td><code>${esc(k.value)}</code></td>
+    <td>${esc(scriptName)}${k.label ? `<div class="tiny muted">${esc(k.label)}</div>` : ""}</td>
+    <td>${esc(k.state)}</td>
+    <td class="tiny mono">${esc(k.hwid || "—")}</td>
+    <td>${k.uses || 0}</td>
+    <td class="tiny">${fmtDate(k.expires_at)}</td>
+    <td><button class="btn alt small" onclick="resetKey('${esc(k.id)}')">Reset HWID</button> <button class="btn danger small" onclick="deleteKey('${esc(k.id)}')">Delete</button></td>
+  </tr>`;
+}
+
+async function createKeys() {
+  try {
+    const body = {
+      duration: $("keyDuration").value,
+      amount: Number($("keyAmount").value) || 1,
+      label: $("keyLabel").value.trim(),
+      script_id: $("keyScript").value || null,
+    };
+    const { data } = await api("/api/keys", { method: "POST", body });
+    setMsg($("keyMsg"), "Created " + (data.keys || []).length + " key(s).", "ok");
+    await loadKeys();
+  } catch (e) {
+    setMsg($("keyMsg"), e.message, "error");
+  }
+}
+async function resetKey(id) {
+  try {
+    await api("/api/keys/" + id + "/reset", { method: "POST" });
+    await loadKeys();
+  } catch (e) {
+    setMsg($("keyMsg"), e.message, "error");
+  }
+}
+async function deleteKey(id) {
+  if (!confirm("Delete this key?")) return;
+  try {
+    await api("/api/keys/" + id, { method: "DELETE" });
+    await loadKeys();
+  } catch (e) {
+    setMsg($("keyMsg"), e.message, "error");
+  }
+}
+
+/* ---------------------------------------------------- invites & sharing */
+async function loadInvites() {
+  if (!state.token) return;
+  try {
+    const { data } = await api("/api/invites");
+    state.invites = data.invites || [];
+    $("invites").innerHTML = state.invites.length
+      ? state.invites.map((i) => `
+          <div class="script">
+            <div class="row between">
+              <div><b style="color:var(--gold)">${esc(i.code)}</b> <span class="chip">${esc(i.kind)}</span>${i.plan ? ` <span class="chip gold">${esc(i.plan)}</span>` : ""}</div>
+              <div class="row">
+                <span class="muted tiny">${i.uses || 0}/${i.max_uses || 1} uses</span>
+                <button class="btn alt small" onclick="copyText(${JSON.stringify(i.code)})">Copy</button>
+                <button class="btn danger small" onclick="deleteInvite('${esc(i.id)}')">Delete</button>
+              </div>
+            </div>
+          </div>`).join("")
+      : '<div class="muted small">No invites yet.</div>';
+  } catch (e) {
+    $("invites").innerHTML = '<div class="msg error">' + esc(e.message) + "</div>";
+  }
+}
+
+async function createInvite() {
+  try {
+    const body = {
+      kind: $("inviteKind").value,
+      plan: $("inviteKind").value === "plan" ? $("invitePlan").value : null,
+      max_uses: Number($("inviteUses").value) || 1,
+    };
+    const { data } = await api("/api/invites", { method: "POST", body });
+    setMsg($("inviteMsg"), "Invite " + data.invite.code + " created.", "ok");
+    await loadInvites();
+  } catch (e) {
+    setMsg($("inviteMsg"), e.message, "error");
+  }
+}
+async function deleteInvite(id) {
+  try {
+    await api("/api/invites/" + id, { method: "DELETE" });
+    await loadInvites();
+  } catch (e) {
+    setMsg($("inviteMsg"), e.message, "error");
+  }
+}
+
+async function loadShares() {
+  if (!state.token) return;
+  try {
+    const { data } = await api("/api/shares");
+    state.shares = data.withMe || [];
+    $("sharedWithMe2").innerHTML = state.shares.length
+      ? state.shares.map((s) => `<div class="script"><div class="row between"><div>${esc(s.script_id || s.id)} from <b>${esc(s.owner_username || "")}</b></div><button class="btn danger small" onclick="deleteShare('${esc(s.id)}')">Remove</button></div></div>`).join("")
+      : '<div class="muted small">Nothing yet.</div>';
+  } catch (e) {
+    $("sharedWithMe2").innerHTML = '<div class="msg error">' + esc(e.message) + "</div>";
+  }
+}
+
+async function createShare() {
+  try {
+    const body = {
+      username: $("shareUser").value.trim(),
+      script_id: $("shareScript").value || null,
+    };
+    await api("/api/shares", { method: "POST", body });
+    setMsg($("shareMsg"), "Shared.", "ok");
+    $("shareUser").value = "";
+    await loadShares();
+  } catch (e) {
+    setMsg($("shareMsg"), e.message, "error");
+  }
+}
+async function deleteShare(id) {
+  try {
+    await api("/api/shares/" + id, { method: "DELETE" });
+    await loadShares();
+  } catch (e) {
+    setMsg($("shareMsg"), e.message, "error");
+  }
+}
+
+async function redeem() {
+  try {
+    const { data } = await api("/api/invites/redeem", {
+      method: "POST",
+      body: { code: $("redeemCode").value.trim(), script_id: $("shareScript").value || null },
+    });
+    setMsg($("redeemMsg"), data.message || "Invite applied.", "ok");
+    $("redeemCode").value = "";
+    await refreshUsage();
+    await loadShares();
+  } catch (e) {
+    setMsg($("redeemMsg"), e.message, "error");
+  }
+}
+
+/* ---------------------------------------------------- script pickers */
+function populateScriptPickers() {
+  const sels = [$("keyScript"), $("shareScript")].filter(Boolean);
+  if (!sels.length) return;
+  const opts = '<option value="">Any script</option>' + state.scripts.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+  sels.forEach((sel) => { sel.innerHTML = opts; });
+}
+
+function populateLogPicker() {
+  const sel = $("logScript");
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select a script…</option>' +
+    state.scripts.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+}
+
+/* ---------------------------------------------------- account */
+async function loadAccountInfo() {
+  if (!state.profile) return;
+  const lines = [];
+  lines.push("<b>" + esc(state.user.username) + "</b>");
+  if (state.profile.email) lines.push(" · " + esc(state.profile.email));
+  lines.push("<br>");
+  lines.push("Plan <b style=\"color:var(--gold)\">" + esc(state.profile.plan) + "</b>");
+  if (state.profile.role === "admin") lines.push(" · <span class=\"chip gold\">admin</span>");
+  lines.push("<br>");
+  lines.push("ToS version <code>" + esc(state.profile.tos_version || "—") + "</code>");
+  $("accountInfo").innerHTML = lines.join("");
+}
+
+async function loadLogs() {
+  const id = $("logScript").value;
+  if (!id) { $("logs").innerHTML = '<div class="muted small">Pick a script first.</div>'; return; }
+  try {
+    const { data } = await api("/api/scripts/" + id + "/logs");
+    const logs = data.logs || [];
+    $("logs").innerHTML = logs.length
+      ? '<table><thead><tr><th>Time</th><th>Status</th><th>Code</th><th>Key</th><th>HWID</th></tr></thead><tbody>' +
+        logs.map((l) => `<tr><td class="tiny">${fmtDate(l.created_at || l.at)}</td><td>${esc(l.status)}</td><td class="tiny">${esc(l.code || "")}</td><td class="tiny mono">${esc(l.key_value || "—")}</td><td class="tiny mono">${esc(l.hwid || "—")}</td></tr>`).join("") + "</tbody></table>"
+      : '<div class="muted small">No executions logged yet.</div>';
+  } catch (e) {
+    $("logs").innerHTML = '<div class="msg error">' + esc(e.message) + "</div>";
+  }
+}
+
+/* ---------------------------------------------------- admin */
+async function loadAdminStats() {
+  try {
+    const { data } = await api("/api/admin/stats");
+    const s = data.stats || {};
+    const lines = [];
+    if (s.profiles != null) lines.push("Accounts: <b>" + s.profiles + "</b>");
+    if (s.scripts != null) lines.push("Scripts: <b>" + s.scripts + "</b>");
+    if (s.keys != null) lines.push("Keys: <b>" + s.keys + "</b>");
+    if (s.invites != null) lines.push("Invites: <b>" + s.invites + "</b>");
+    if (s.shares != null) lines.push("Shares: <b>" + s.shares + "</b>");
+    if (s.announcements != null) lines.push("Announcements: <b>" + s.announcements + "</b>");
+    if (s.logs != null) lines.push("Log rows: <b>" + s.logs + "</b>");
+    lines.push("<br>Storage: <b>" + esc(data.store) + "</b> · auth: <b>" + esc(data.auth) + "</b> · month <code>" + esc(data.month) + "</code>");
+    $("adminStats").innerHTML = lines.join(" · ");
+  } catch (e) {
+    $("adminStats").innerHTML = '<div class="msg error">' + esc(e.message) + "</div>";
+  }
+}
+
+async function loadUsers() {
+  try {
+    const { data } = await api("/api/admin/users?search=" + encodeURIComponent($("userSearch").value || ""));
+    const list = data.users || [];
+    $("users").innerHTML = list.length
+      ? '<table><thead><tr><th>User</th><th>Plan</th><th>Status</th><th>Role</th><th>ToS</th><th></th></tr></thead><tbody>' +
+        list.map(renderUserRow).join("") + "</tbody></table>"
+      : '<div class="muted small">No matching users.</div>';
+  } catch (e) {
+    $("users").innerHTML = '<div class="msg error">' + esc(e.message) + "</div>";
+  }
+}
+
+function renderUserRow(u) {
+  return `<tr>
+    <td><b>${esc(u.username)}</b>${u.email ? `<div class="tiny muted">${esc(u.email)}</div>` : ""}</td>
+    <td><select onchange="adminPatch('${esc(u.id)}', {plan: this.value})">
+      <option value="free" ${u.plan === "free" ? "selected" : ""}>free</option>
+      <option value="pro" ${u.plan === "pro" ? "selected" : ""}>pro</option>
+      <option value="premium" ${u.plan === "premium" ? "selected" : ""}>premium</option>
+    </select></td>
+    <td><select onchange="adminPatch('${esc(u.id)}', {status: this.value})">
+      <option value="active" ${u.status === "active" ? "selected" : ""}>active</option>
+      <option value="suspended" ${u.status === "suspended" ? "selected" : ""}>suspended</option>
+      <option value="terminated" ${u.status === "terminated" ? "selected" : ""}>terminated</option>
+    </select></td>
+    <td><select onchange="adminPatch('${esc(u.id)}', {role: this.value})">
+      <option value="user" ${u.role !== "admin" ? "selected" : ""}>user</option>
+      <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
+    </select></td>
+    <td class="tiny mono">${esc(u.tos_version || "—")}</td>
+    <td></td>
+  </tr>`;
+}
+
+async function adminPatch(id, body) {
+  try { await api("/api/admin/users/" + id, { method: "PATCH", body }); }
+  catch (e) { alert(e.message); }
+}
+
+async function loadAdminAnnouncements() {
+  try {
+    const { data } = await api("/api/announcements");
+    const list = data.announcements || [];
+    $("annList").innerHTML = list.length
+      ? list.map((a) => `<div class="script"><div class="row between"><div><b>${esc(a.title)}</b><div class="muted tiny">${esc(a.body)}</div></div><button class="btn danger small" onclick="deleteAnnouncement('${esc(a.id)}')">Delete</button></div></div>`).join("")
+      : '<div class="muted small">No active announcements.</div>';
+  } catch {}
+}
+
+async function broadcast() {
+  try {
+    await api("/api/admin/announcements", { method: "POST", body: { title: $("annTitle").value, body: $("annBody").value } });
+    setMsg($("annMsg"), "Published.", "ok");
+    $("annTitle").value = ""; $("annBody").value = "";
+    await loadAdminAnnouncements();
+    loadAnnouncements();
+  } catch (e) {
+    setMsg($("annMsg"), e.message, "error");
+  }
+}
+async function deleteAnnouncement(id) {
+  try { await api("/api/admin/announcements/" + id, { method: "DELETE" }); await loadAdminAnnouncements(); }
+  catch (e) { alert(e.message); }
+}
+
+let userSearchTimer;
+$("userSearch").addEventListener("input", () => {
+  clearTimeout(userSearchTimer);
+  userSearchTimer = setTimeout(loadUsers, 200);
+});
+
+handlePasswordReset().then(() => boot()).catch((e) => console.error("LuaLune boot failed:", e));
+</script>
+</body>
+</html>

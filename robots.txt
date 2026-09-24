@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://luamore.app/sitemap.xml
+Sitemap: https://lualune.onrender.com/sitemap.xml
