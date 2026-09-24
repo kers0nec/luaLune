@@ -5,19 +5,55 @@
 <meta name="theme-color" content="#090704"><title>LuaLune</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#090704;color:#fff8df;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
-body:before{content:"";position:fixed;inset:-20%;z-index:-1;background:radial-gradient(circle at 50% 15%,rgba(245,197,66,.16),transparent 35%),radial-gradient(circle at 80% 80%,rgba(168,121,0,.10),transparent 30%)}
-.wrap{max-width:1050px;margin:auto;padding:24px}.nav{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border:1px solid #4a3812;border-radius:18px;background:rgba(18,14,7,.72);backdrop-filter:blur(18px)}
-.logo{font-weight:800;font-size:20px;color:#f5c542}.btn{display:inline-block;border:1px solid #5a4412;border-radius:12px;padding:11px 18px;color:#171004;background:#f5c542;text-decoration:none;font-weight:700;cursor:pointer}
-.hero{text-align:center;padding:110px 10px 70px}.pill{display:inline-block;border:1px solid #4a3812;background:rgba(18,14,7,.7);padding:8px 14px;border-radius:999px;color:#bda96f;font-size:13px}
-h1{font-size:clamp(44px,8vw,82px);line-height:1.02;margin:24px 0 18px}h1 span{color:#f5c542}p{color:#bda96f;font-size:18px;line-height:1.6;max-width:650px;margin:0 auto 30px}
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{border:1px solid #4a3812;background:rgba(18,14,7,.65);border-radius:18px;padding:24px;backdrop-filter:blur(15px)}.card b{color:#f5c542}.card p{font-size:14px;margin:8px 0 0}
-@media(max-width:700px){.cards{grid-template-columns:1fr}.hero{padding-top:75px}}
-</style><meta name="build" content="lualune-2026-09-24-fix"></head>
+body:before{content:"";position:fixed;inset:-20%;z-index:-1;background:radial-gradient(circle at 50% 10%,rgba(245,197,66,.16),transparent 34%),radial-gradient(circle at 85% 80%,rgba(168,121,0,.12),transparent 32%)}
+.wrap{max-width:1120px;margin:auto;padding:24px}.nav,.panel,.card{border:1px solid #4a3812;background:rgba(18,14,7,.72);backdrop-filter:blur(18px);box-shadow:0 20px 70px rgba(0,0,0,.25)}
+.nav{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-radius:18px}.logo{font-weight:900;font-size:21px;color:#f5c542}
+.btn{border:1px solid #5a4412;border-radius:12px;padding:11px 18px;color:#171004;background:#f5c542;text-decoration:none;font-weight:800;cursor:pointer}.btn.alt{background:transparent;color:#fff8df}.btn.danger{background:transparent;color:#e8c5a0}
+.hero{text-align:center;padding:90px 10px 65px}.pill{display:inline-block;border:1px solid #4a3812;background:rgba(18,14,7,.7);padding:8px 14px;border-radius:999px;color:#bda96f;font-size:13px}
+h1{font-size:clamp(44px,8vw,82px);line-height:1.02;margin:24px 0 18px}h1 span{color:#f5c542}p{color:#bda96f;font-size:18px;line-height:1.6}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{border-radius:18px;padding:24px}.card b{color:#f5c542}.card p{font-size:14px;margin:8px 0 0}
+.hidden{display:none!important}.auth{max-width:440px;margin:70px auto}.panel{border-radius:22px;padding:28px}.tabs{display:flex;gap:8px;margin-bottom:22px}.tab{flex:1;padding:11px;border:1px solid #4a3812;background:transparent;color:#bda96f;border-radius:10px;cursor:pointer}.tab.active{background:#f5c542;color:#171004;font-weight:800}
+label{display:block;color:#bda96f;font-size:13px;margin:14px 0 7px}input,textarea{width:100%;border:1px solid #4a3812;border-radius:12px;background:#0d0a06;color:#fff8df;padding:13px;outline:none}textarea{min-height:230px;resize:vertical;font-family:ui-monospace,SFMono-Regular,monospace}input:focus,textarea:focus{border-color:#f5c542}
+.row{display:flex;gap:10px;align-items:center}.between{justify-content:space-between}.muted{color:#bda96f}.error{color:#ffb59a;margin:12px 0}.ok{color:#d7e7a5;margin:12px 0}.dash{padding:35px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.script{border-top:1px solid #3b2d12;padding:15px 0}.script:first-child{border-top:0}.loader{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;background:#0d0a06;padding:10px;border-radius:10px;margin-top:8px;color:#e8d9ad}
+@media(max-width:760px){.cards,.grid{grid-template-columns:1fr}.hero{padding-top:65px}.nav{padding:12px}}
+</style></head>
 <body><div class="wrap">
-<header class="nav"><div class="logo">LuaLune</div><a class="btn" href="/login">Sign in</a></header>
-<main class="hero"><div class="pill">Luau obfuscation, made effortless</div>
-<h1>Snap your Luau into a <span>loadstring</span></h1>
-<p>Paste your script, name it, hit create. LuaLune obfuscates it and gives you a one-line loader URL.</p>
-<a class="btn" href="/login">Get started</a></main>
-<section class="cards"><div class="card"><b>Obfuscated</b><p>Protected payloads with runtime decoding.</p></div><div class="card"><b>Instant URL</b><p>Each script gets a loader endpoint.</p></div><div class="card"><b>One-line loader</b><p>Copy a loadstring snippet and run.</p></div></section>
-</div></body></html>
+<header class="nav"><div class="logo">LuaLune</div><div id="navActions"><button class="btn alt" onclick="showAuth()">Sign in</button></div></header>
+
+<section id="home">
+<main class="hero"><div class="pill">Luau obfuscation, made effortless</div><h1>Snap your Luau into a <span>loadstring</span></h1><p>Sign in, paste your script, and LuaLune turns it into a protected loader endpoint.</p><button class="btn" onclick="showAuth()">Get started</button></main>
+<section class="cards"><div class="card"><b>Server-side obfuscation</b><p>Your source is transformed on the backend instead of exposed in the browser.</p></div><div class="card"><b>Instant loader</b><p>Every script gets a public endpoint ready for a one-line loadstring.</p></div><div class="card"><b>Private dashboard</b><p>Scripts are tied to your Supabase account with row-level security.</p></div></section>
+</section>
+
+<section id="auth" class="auth hidden"><div class="panel">
+<div class="tabs"><button id="loginTab" class="tab active" onclick="setMode('login')">Sign in</button><button id="signupTab" class="tab" onclick="setMode('signup')">Create account</button></div>
+<form id="authForm"><label>Username</label><input id="username" autocomplete="username" minlength="3" maxlength="24" required><label>Password</label><input id="password" type="password" autocomplete="current-password" minlength="8" required><div id="tos" class="hidden"><label><input id="agree" type="checkbox" style="width:auto;margin-right:8px">I agree to the LuaLune Terms of Service.</label></div><div id="authMsg"></div><button class="btn" style="width:100%;margin-top:12px" id="authBtn">Sign in</button></form>
+</div></section>
+
+<section id="dashboard" class="dash hidden"><div class="row between"><div><h2>Dashboard</h2><div class="muted" id="who"></div></div><button class="btn alt" onclick="logout()">Sign out</button></div>
+<div class="grid" style="margin-top:20px"><div class="panel"><h3>Create script</h3><label>Script name</label><input id="scriptName" placeholder="My script"><label>Luau source</label><textarea id="source" placeholder="print('hello')"></textarea><div id="createMsg"></div><button class="btn" style="margin-top:12px" onclick="createScript()">Obfuscate & create</button></div>
+<div class="panel"><div class="row between"><h3>Your scripts</h3><button class="btn alt" onclick="loadScripts()">Refresh</button></div><div id="scripts" class="muted">Loading...</div></div></div>
+</section>
+</div>
+<script>
+let mode="login",token=localStorage.getItem("lualune_access_token");
+const $=id=>document.getElementById(id);
+function show(id){["home","auth","dashboard"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
+function showAuth(){show("auth");setMode("login")}
+function setMode(m){mode=m;$("loginTab").classList.toggle("active",m==="login");$("signupTab").classList.toggle("active",m==="signup");$("tos").classList.toggle("hidden",m!=="signup");$("authBtn").textContent=m==="login"?"Sign in":"Create account";$("password").autocomplete=m==="login"?"current-password":"new-password";$("authMsg").textContent=""}
+$("authForm").addEventListener("submit",async e=>{e.preventDefault();$("authMsg").className="muted";$("authMsg").textContent="Working...";if(mode==="signup"&&!$("agree").checked){$("authMsg").className="error";$("authMsg").textContent="Accept the Terms of Service first.";return}
+const body={username:$("username").value,password:$("password").value};const r=await fetch("/api/auth/"+mode,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));
+if(!r.ok){$("authMsg").className="error";$("authMsg").textContent=d.error||"Request failed";return}
+if(!d.session){$("authMsg").className="ok";$("authMsg").textContent="Account created. If email confirmation is enabled, confirm it before signing in.";return}
+token=d.session.access_token;localStorage.setItem("lualune_access_token",token);boot();
+});
+async function api(url,opts={}){opts.headers={...(opts.headers||{}),Authorization:"Bearer "+token,"Content-Type":"application/json"};const r=await fetch(url,opts);if(r.status===401){logout();throw Error("Session expired")}return r}
+async function boot(){if(!token){show("home");$("navActions").innerHTML='<button class="btn alt" onclick="showAuth()">Sign in</button>';return}try{const r=await api("/api/auth/me");const d=await r.json();$("who").textContent=d.user?.user_metadata?.username||d.user?.email||"Account";show("dashboard");$("navActions").innerHTML='<span class="muted">Signed in</span>';loadScripts()}catch{show("home")}}
+async function logout(){try{if(token)await api("/api/auth/logout",{method:"POST"})}catch{}token=null;localStorage.removeItem("lualune_access_token");boot()}
+async function loadScripts(){const box=$("scripts");box.textContent="Loading...";try{const r=await api("/api/scripts");const d=await r.json();if(!r.ok)throw Error(d.error);if(!d.scripts.length){box.innerHTML='<div class="muted">No scripts yet.</div>';return}box.innerHTML=d.scripts.map(s=>'<div class="script"><div class="row between"><b>'+esc(s.name)+'</b><button class="btn danger" onclick="deleteScript(\''+s.id+'\')">Delete</button></div><div class="muted">'+new Date(s.created_at).toLocaleString()+'</div><div class="loader" id="l-'+s.id+'">loadstring(game:HttpGet("/loader/'+s.id+'"))()</div><button class="btn alt" style="margin-top:8px" onclick="copyLoader(\''+s.id+'\')">Copy loader</button></div>').join("")}catch(e){box.innerHTML='<div class="error">'+esc(e.message)+'</div>'}}
+async function createScript(){const msg=$("createMsg");msg.className="muted";msg.textContent="Obfuscating...";try{const r=await api("/api/scripts",{method:"POST",body:JSON.stringify({name:$("scriptName").value,source:$("source").value})});const d=await r.json();if(!r.ok)throw Error(d.error);msg.className="ok";msg.textContent="Created. Loader copied below.";await navigator.clipboard?.writeText(d.loader).catch(()=>{});$("scriptName").value="";$("source").value="";loadScripts()}catch(e){msg.className="error";msg.textContent=e.message}}
+async function deleteScript(id){if(!confirm("Delete this script?"))return;await api("/api/scripts/"+id,{method:"DELETE"});loadScripts()}
+async function copyLoader(id){const s=await api("/api/scripts").then(r=>r.json());const x=s.scripts.find(v=>v.id===id);if(x)navigator.clipboard?.writeText('loadstring(game:HttpGet("'+location.origin+'/loader/'+id+'"))()')}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+boot();
+</script></body></html>
