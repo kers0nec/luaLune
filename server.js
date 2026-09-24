@@ -112,7 +112,7 @@ app.get("/loader/:id",async(req,res)=>{
 });
 
 app.use(express.static(__dirname));
-app.get("*",(req,res)=>{
+app.get(/.*/,(req,res)=>{
   if(req.path.startsWith("/api/")||req.path.startsWith("/loader/")) return res.status(404).end();
   res.sendFile(path.join(__dirname,"index.html"));
 });
