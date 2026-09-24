@@ -70,11 +70,13 @@ npm start          # http://localhost:10000
 ```
 
 Without `SUPABASE_URL` / `SUPABASE_ANON_KEY` LuaLune runs fully self contained:
-accounts, sessions and data live in memory (great for a local run or a preview
-sandbox, wiped on restart). Configure Supabase to make it persistent.
+accounts, sessions and data live in memory, but auth accounts and session
+signing are persisted to `data/auth-local.json`, so logins keep working across
+restarts (set `LUALUNE_DATA_DIR` to move that file). Configure Supabase to make
+everything else persistent too.
 
 ```bash
-npm test           # 55 tests: obfuscator, protections, API, fuzz round trips through a Lua VM
+npm test           # 65 tests: obfuscator, protections, auth, API, fuzz round trips through a Lua VM
 ```
 
 ### Environment
@@ -83,10 +85,24 @@ npm test           # 55 tests: obfuscator, protections, API, fuzz round trips th
 | --- | --- |
 | `PORT` | HTTP port (default `10000`, Render sets it automatically). |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Enables Supabase auth + Postgres storage. Run `schema.sql` once. |
-| `LUALUNE_AUTH_SECRET` | Signs local session tokens when Supabase is not configured. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only admin key. Lets LuaLune confirm sign-ups itself, so username-only accounts work even with Supabase "Confirm email" enabled. |
+| `LUALUNE_AUTH_SECRET` | Signs local session tokens when Supabase is not configured. Generated and persisted automatically when unset. |
+| `LUALUNE_DATA_DIR` | Where local-mode auth state is persisted (default `./data`). |
 | `LUALUNE_DOMAIN` | Domain shown in metadata and used for log hashing salt. |
 | `LUALUNE_ADMINS` | Comma separated emails that always get admin access. |
 | `LUALUNE_RATE_AUTH` / `LUALUNE_RATE_BUILD` / `LUALUNE_RATE_LOADER` | Requests allowed per window (60 / 10 min, 30 / min, 240 / min by default). |
+
+### Sign-in troubleshooting
+
+- **"Invalid username or password" with a correct password** — the account is
+  probably stuck unconfirmed in Supabase (see the email confirmation note above).
+  Set `SUPABASE_SERVICE_ROLE_KEY` and restart: the next login attempt confirms
+  and rescues the account automatically.
+- **Accounts vanish after every deploy** — that instance is running without
+  Supabase. Auth accounts survive restarts now, but scripts/keys need
+  `SUPABASE_URL` / `SUPABASE_ANON_KEY` to be persistent.
+- **"Too many sign-in attempts"** — rate limited per IP (60 per 10 minutes);
+  the error shows the wait.
 
 ---
 

@@ -339,7 +339,8 @@ async function api(path, { method = "GET", body, text } = {}) {
   if (text) return { res, data: await res.text() };
   const data = res.status === 204 ? {} : await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = data.error || data.message || (typeof data === "string" && data ? data : null) || `Request failed (${res.status})`;
+    let msg = data.error || data.message || (typeof data === "string" && data ? data : null) || `Request failed (${res.status})`;
+    if (data && data.retryAfter) msg += ` — try again in ${data.retryAfter}s`;
     const err = new Error(msg);
     err.status = res.status;
     err.data = data;
@@ -561,6 +562,8 @@ $("authForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const username = $("username").value.trim();
   const password = $("password").value;
+  const btn = $("authBtn");
+  const captchaBroken = (message) => /human check|captcha/i.test(String(message || ""));
   try {
     if (!username) return setMsg($("authMsg"), "Enter your username.", "error");
     if (!password) return setMsg($("authMsg"), "Enter your password.", "error");
@@ -579,6 +582,7 @@ $("authForm").addEventListener("submit", async (event) => {
         return setMsg($("authMsg"), "Accept the Terms of Service first.", "error");
       }
       setMsg($("authMsg"), "Creating your account…");
+      btn.disabled = true;
 
       if (!state.captchaNonce) {
         try {
@@ -611,7 +615,17 @@ $("authForm").addEventListener("submit", async (event) => {
       if (data.session && data.session.access_token) {
         state.token = data.session.access_token;
         localStorage.setItem("lualune_token", state.token);
+        $("password").value = "";
         await boot();
+        return;
+      }
+
+      // The server could not hand back a session right away. If it says the
+      // account needs email confirmation, do NOT burn a login attempt on it —
+      // show the message and stop.
+      if (data.needsConfirmation) {
+        setMsg($("authMsg"), data.message || "Account created. Confirm the sign-up email, then sign in.", "muted");
+        setMode("login");
         return;
       }
 
@@ -623,6 +637,7 @@ $("authForm").addEventListener("submit", async (event) => {
         if (loginData.session && loginData.session.access_token) {
           state.token = loginData.session.access_token;
           localStorage.setItem("lualune_token", state.token);
+          $("password").value = "";
           await boot();
           return;
         }
@@ -634,17 +649,41 @@ $("authForm").addEventListener("submit", async (event) => {
     }
 
     setMsg($("authMsg"), "Signing in…");
+    btn.disabled = true;
     const { data } = await api("/api/auth/login", {
       method: "POST",
       body: { identifier: username, password }
     });
     state.token = data.session.access_token;
     localStorage.setItem("lualune_token", state.token);
+    $("password").value = "";
     await boot();
   } catch (e) {
     setMsg($("authMsg"), e.message, "error");
+    // A spent or expired human check must never wedge the form: fetch a fresh
+    // challenge so the very next attempt can succeed.
+    if (captchaBroken(e.message)) {
+      resetCaptcha();
+      prepareCaptcha();
+    }
+  } finally {
+    btn.disabled = false;
   }
 });
+
+async function forgotPassword() {
+  const email = window.prompt("Enter the email on your account and we will send a reset link.\n\nAccounts created with a username only use username@users.lualune.local, which cannot receive mail — sign in with the username instead, or contact the admin.");
+  if (!email) return;
+  try {
+    const { data } = await api("/api/auth/reset-password", {
+      method: "POST",
+      body: { email: email.trim(), redirectTo: window.location.origin + window.location.pathname }
+    });
+    setMsg($("authMsg"), data.message || "If an account exists for that email, a reset link has been sent.", "ok");
+  } catch (e) {
+    setMsg($("authMsg"), e.message, "error");
+  }
+}
 
 async function handlePasswordReset() {
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
