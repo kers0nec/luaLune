@@ -45,7 +45,7 @@ const loaderLimiter = createLimiter({
 const BRAND = {
   name: "LuaLune",
   product: "LuaLune Obfuscator",
-  domain: process.env.LUALUNE_DOMAIN || "luamore.app",
+  domain: process.env.LUALUNE_DOMAIN || "lualune.onrender.com",
   logo: "/logo.png",
   accent: "#f5c542",
   store: store.kind,
