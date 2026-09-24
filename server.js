@@ -203,6 +203,14 @@ app.post("/api/auth/signup", authLimiter, async (req, res) => {
   res.status(201).json(result);
 });
 
+app.post("/api/auth/reset-password", authLimiter, async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const redirectTo = String(req.body?.redirectTo || process.env.LUALUNE_AUTH_REDIRECT || "");
+  const result = await auth.resetPassword(email, redirectTo || undefined);
+  if (result.error) return fail(res, 400, result.error);
+  res.json({ ok: true, message: "If an account exists for that email, a password reset email has been sent." });
+});
+
 app.post("/api/auth/login", authLimiter, async (req, res) => {
   const { identifier, username, email, password } = req.body || {};
   const result = await auth.login({ identifier: identifier || username || email, password });
