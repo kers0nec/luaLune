@@ -21,7 +21,7 @@ Render should use the repository Dockerfile. The server listens on Render's `POR
 
 ## 3. What is implemented
 
-- Username/password signup and login
+- Email/password signup and login with an optional display name
 - Persistent Supabase sessions
 - Authenticated dashboard
 - Server-side script obfuscation
