@@ -517,6 +517,29 @@ $("authForm").addEventListener("submit", async (event) => {
   }
 });
 
+async function handlePasswordReset() {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const accessToken = hash.get("access_token");
+  const type = hash.get("type");
+  if (!accessToken || type !== "recovery") return false;
+  const password = window.prompt("Enter your new LuaLune password (8+ characters):");
+  if (!password) return true;
+  try {
+    const res = await fetch("/api/auth/update-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Could not update password.");
+    history.replaceState({}, "", window.location.pathname + window.location.search);
+    setMsg($("authMsg"), "Password updated. You can now sign in with your new password.", "ok");
+  } catch (e) {
+    setMsg($("authMsg"), e.message, "error");
+  }
+  return true;
+}
+
 async function forgotPassword() {
   const email = $("email").value.trim().toLowerCase();
   if (!email) return setMsg($("authMsg"), "Enter your email first.", "error");
@@ -531,3 +554,5 @@ async function forgotPassword() {
     setMsg($("authMsg"), e.message, "error");
   }
 });
+
+boot().catch((e) => console.error('LuaLune boot failed:', e));
