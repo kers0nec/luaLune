@@ -54,21 +54,22 @@ return __fn()
 app.get("/healthz",(_,res)=>res.type("text").send("LuaLune API OK\n"));
 
 app.post("/api/auth/signup",async(req,res)=>{
-  const username=String(req.body?.username||"").trim();
+  const email=String(req.body?.email||"").trim().toLowerCase();
   const password=String(req.body?.password||"");
-  if(!/^[a-zA-Z0-9._-]{3,24}$/.test(username)) return res.status(400).json({error:"Username must be 3-24 letters, numbers, dots, underscores or hyphens."});
+  const username=String(req.body?.username||"").trim();
+  if(!email.includes("@")) return res.status(400).json({error:"Enter a valid email address."});
   if(password.length<8) return res.status(400).json({error:"Password must be at least 8 characters."});
-  const {data,error}=await sb().auth.signUp({email:emailFor(username),password,options:{data:{username}}});
+  const {data,error}=await sb().auth.signUp({email,password,options:{data:{username:username||email.split("@")[0]}}});
   if(error) return res.status(400).json({error:error.message});
   res.status(201).json({user:data.user,session:data.session,needsConfirmation:!data.session});
 });
 
 app.post("/api/auth/login",async(req,res)=>{
-  const username=String(req.body?.username||"").trim();
+  const email=String(req.body?.email||"").trim().toLowerCase();
   const password=String(req.body?.password||"");
-  if(!username||!password) return res.status(400).json({error:"Username and password are required."});
-  const {data,error}=await sb().auth.signInWithPassword({email:emailFor(username),password});
-  if(error) return res.status(401).json({error:"Invalid username or password."});
+  if(!email||!password) return res.status(400).json({error:"Email and password are required."});
+  const {data,error}=await sb().auth.signInWithPassword({email,password});
+  if(error) return res.status(401).json({error:"Invalid email or password."});
   res.json({user:data.user,session:data.session});
 });
 
