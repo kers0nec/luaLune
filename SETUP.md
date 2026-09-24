@@ -28,7 +28,8 @@ when the process restarts. Useful for previews, demos and development.
 4. Set the environment variables on your host:
 
    - `SUPABASE_URL` = your project URL
-   - `SUPABASE_ANON_KEY` = your publishable/anon key
+   - `SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` — **Render/server only**; never put this in the browser or GitHub = your publishable/anon key
 
    Never put a service role key in the repository or the browser.
 
@@ -92,3 +93,10 @@ that appear at the top of every page.
   Lua VM and compares their output with the original script.
 - A script marked *key required* returns a denial stub without a valid key.
 - `GET /api/meta` reports the store and auth mode in use.
+
+
+## Supabase Auth configuration
+
+Set the Supabase Auth **Site URL** to your deployed LuaLune URL and add that same URL to the allowed Redirect URLs. Supabase requires the Site URL/Redirect URL configuration for email confirmation and password-reset redirects. citeturn0search0turn0search1
+
+Run the current `schema.sql` after the profile trigger changes. The server-side secret key is required for the server's profile/admin data operations; keep it only in Render environment variables. Supabase documents that server-side secret/service keys bypass RLS and must never be exposed client-side. citeturn2search3turn2search9
