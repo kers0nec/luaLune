@@ -18,9 +18,7 @@ function sb(token){
     auth:{persistSession:false,autoRefreshToken:false}
   });
 }
-function emailFor(username){
-  return username.trim().toLowerCase().replace(/[^a-z0-9._-]/g,"")+"@users.lualune.local";
-}
+function emailFor(email){ return String(email||"").trim().toLowerCase(); }
 async function auth(req,res,next){
   const h=req.headers.authorization||"";
   if(!h.startsWith("Bearer ")) return res.status(401).json({error:"Authentication required"});
