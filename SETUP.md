@@ -32,4 +32,9 @@ Render should use the repository Dockerfile. The server listens on Render's `POR
 - Public loader reads only scripts marked public
 - `/healthz` health check
 
-The obfuscator uses a generated XOR key and hex payload. This is obfuscation, not cryptographic secrecy; do not treat it as a way to protect a secret that must remain confidential.
+The obfuscator uses a generated Lune Obfuscator AST-based protection key and hex payload. This is obfuscation, not cryptographic secrecy; do not treat it as a way to protect a secret that must remain confidential.
+
+
+## Engine attribution
+
+LuaLune uses Lune Obfuscator, based on Prometheus by Elias Oelschner: https://github.com/prometheus-lua/Prometheus
