@@ -555,4 +555,4 @@ async function forgotPassword() {
   }
 });
 
-boot().catch((e) => console.error('LuaLune boot failed:', e));
+handlePasswordReset().then(() => boot()).catch((e) => console.error('LuaLune boot failed:', e));
