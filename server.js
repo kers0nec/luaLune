@@ -3,6 +3,9 @@ import crypto from "node:crypto";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {createClient} from "@supabase/supabase-js";
+import {createRequire} from "node:module";
+const require=createRequire(import.meta.url);
+const {obfuscate: luneObfuscate}=require("./prometheus.js");
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const app=express();
@@ -28,16 +31,10 @@ async function auth(req,res,next){
   req.sb=client; req.user=data.user; next();
 }
 
-function obfuscate(source,strength="strong"){
-  const k1=crypto.randomBytes(16), k2=crypto.randomBytes(16);
-  const input=Buffer.from(source,"utf8"), out=Buffer.alloc(input.length);
-  for(let i=0;i<input.length;i++){
-    let v=input[i]^k1[i%k1.length]^((i*31)&255);
-    if(strength==="strong") v=v^k2[i%k2.length]^((i*17+73)&255);
-    out[i]=v;
-  }
-  const key=(strength==="strong"?"S:":"L:")+k1.toString("hex")+(strength==="strong"?":"+k2.toString("hex"):"");
-  return {key,payload:out.toString("hex")};
+async function obfuscate(source,strength="strong"){
+  const preset=strength==="light"?"weak":strength==="strong"?"strong":"medium";
+  const output=await luneObfuscate(source,{preset,antiTamper:true});
+  return {key:"LUNE:"+crypto.randomBytes(12).toString("hex"),payload:Buffer.from(output,"utf8").toString("base64"),raw:output};
 }
 function loader(payload,key){
   return `-- LuaLune protected build
@@ -107,11 +104,11 @@ app.post("/api/scripts",auth,async(req,res)=>{
   const strength=req.body?.strength==="light"?"light":"strong";
   if(name.length<1||name.length>80) return res.status(400).json({error:"Name must be 1-80 characters."});
   if(source.length<1||source.length>500000) return res.status(400).json({error:"Script must be 1-500,000 characters."});
-  const {key,payload}=obfuscate(source,strength);
+  const {key,payload,raw}=await obfuscate(source,strength);
   const {data,error}=await req.sb.from("scripts").insert({owner_id:req.user.id,name,payload,secret_key:key,public:true}).select("id,name,created_at,updated_at,public").single();
   if(error) return res.status(500).json({error:error.message});
   const loaderUrl=req.protocol+"://"+req.get("host")+"/loader/"+data.id;
-  res.status(201).json({script:data,loader:"loadstring(game:HttpGet("+JSON.stringify(loaderUrl)+"))()"});
+  res.status(201).json({script:data,loader:"loadstring(game:HttpGet("+JSON.stringify(loaderUrl)+"))()",preview:raw});
 });
 
 app.delete("/api/scripts/:id",auth,async(req,res)=>{
