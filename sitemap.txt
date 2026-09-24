@@ -1,6 +1,3 @@
-404
-Page not found
-The page you're looking for doesn't exist.
-Go home
-
-
+https://luamore.app/
+https://luamore.app/plans
+https://luamore.app/tos

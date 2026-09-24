@@ -1,59 +1,893 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#090704"><title>LuaLune — Luau Protection</title><meta name="description" content="LuaLune Luau obfuscation and script protection.">
-<style>
-*{box-sizing:border-box}body{margin:0;background:#090704;color:#fff8df;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
-body:before{content:"";position:fixed;inset:-20%;z-index:-1;background:radial-gradient(circle at 50% 10%,rgba(245,197,66,.16),transparent 34%),radial-gradient(circle at 85% 80%,rgba(168,121,0,.12),transparent 32%)}
-.wrap{max-width:1120px;margin:auto;padding:24px}.nav,.panel,.card{border:1px solid #4a3812;background:rgba(18,14,7,.72);backdrop-filter:blur(18px);box-shadow:0 20px 70px rgba(0,0,0,.25)}
-.nav{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-radius:18px}.logo{display:flex;align-items:center;gap:10px;font-weight:900;font-size:21px;color:#f5c542}.logoMark{width:34px;height:34px;border-radius:10px;background:url("/assets/lualune-logo.jpg") center/cover no-repeat;box-shadow:0 0 28px rgba(245,197,66,.42),inset 0 0 0 1px rgba(255,240,163,.28);position:relative;overflow:hidden}.logoMark:after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.18),transparent 45%);pointer-events:none}
-.btn{border:1px solid #5a4412;border-radius:12px;padding:11px 18px;color:#171004;background:#f5c542;text-decoration:none;font-weight:800;cursor:pointer}.btn.alt{background:transparent;color:#fff8df}.btn.danger{background:transparent;color:#e8c5a0}.discord{background:#17130b;color:#f5c542}.navlinks{display:flex;gap:8px;align-items:center}.eyebrow{color:#f5c542;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.heroGlow{position:absolute;left:50%;transform:translateX(-50%);width:420px;height:180px;background:rgba(245,197,66,.13);filter:blur(70px);pointer-events:none}.metric{font-size:26px;font-weight:900;color:#fff8df}.select{border:1px solid #4a3812;background:#0d0a06;color:#fff8df;border-radius:12px;padding:12px}
-.hero{text-align:center;padding:90px 10px 65px}.pill{display:inline-block;border:1px solid #4a3812;background:rgba(18,14,7,.7);padding:8px 14px;border-radius:999px;color:#bda96f;font-size:13px}
-h1{font-size:clamp(44px,8vw,82px);line-height:1.02;margin:24px 0 18px}h1 span{color:#f5c542}p{color:#bda96f;font-size:18px;line-height:1.6}
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{border-radius:18px;padding:24px}.card b{color:#f5c542}.card p{font-size:14px;margin:8px 0 0}
-.hidden{display:none!important}.auth{max-width:440px;margin:70px auto}.panel{border-radius:22px;padding:28px}.tabs{display:flex;gap:8px;margin-bottom:22px}.tab{flex:1;padding:11px;border:1px solid #4a3812;background:transparent;color:#bda96f;border-radius:10px;cursor:pointer}.tab.active{background:#f5c542;color:#171004;font-weight:800}
-label{display:block;color:#bda96f;font-size:13px;margin:14px 0 7px}input,textarea{width:100%;border:1px solid #4a3812;border-radius:12px;background:#0d0a06;color:#fff8df;padding:13px;outline:none}textarea{min-height:230px;resize:vertical;font-family:ui-monospace,SFMono-Regular,monospace}input:focus,textarea:focus{border-color:#f5c542}
-.row{display:flex;gap:10px;align-items:center}.between{justify-content:space-between}.muted{color:#bda96f}.error{color:#ffb59a;margin:12px 0}.ok{color:#d7e7a5;margin:12px 0}.dash{padding:35px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.script{border-top:1px solid #3b2d12;padding:15px 0}.script:first-child{border-top:0}.loader{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;background:#0d0a06;padding:10px;border-radius:10px;margin-top:8px;color:#e8d9ad}
-@media(max-width:760px){.cards,.grid{grid-template-columns:1fr}.hero{padding-top:65px}.nav{padding:12px}}
-.hero-orb img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}.hero-orb span{display:none}</style></head>
-<body><div class="wrap">
-<header class="nav"><div class="logo"><span class="logoMark">L</span>LuaLune</div><div class="navlinks"><a class="btn discord" href="https://discord.gg/yW5SkvuWqE" target="_blank" rel="noreferrer">Discord</a><div id="navActions"><button class="btn alt" onclick="showAuth()">Sign in</button></div></div></header>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LuaLune — Luau Protection & LuaLune Obfuscator</title>
+<meta name="theme-color" content="#0b0906">
+<meta name="description" content="LuaLune protects Lua and Luau scripts with the LuaLune Obfuscator: control flow flattening, identifier and string encryption, encrypted runtime payloads and one-line loader URLs.">
+<meta property="og:title" content="LuaLune — Luau Protection">
+<meta property="og:description" content="The LuaLune Obfuscator: encrypted payloads, control flow flattening, key systems and loader URLs.">
+<meta property="og:image" content="/logo-256.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/logo-64.png">
+<link rel="apple-touch-icon" href="/logo-256.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="nav">
+    <div class="logo" onclick="go('home')"><img src="/logo-64.png" alt="LuaLune logo"><span>LuaLune</span></div>
+    <div class="navlinks">
+      <button class="btn alt small" onclick="go('plans')">Plans</button>
+      <button class="btn alt small" onclick="go('tos')">Terms</button>
+      <div id="navActions"></div>
+    </div>
+  </header>
 
-<section id="home">
-<main class="hero" style="position:relative"><div class="heroGlow"></div><div class="pill">LuaU protection • randomized builds • private delivery</div><div class="eyebrow" style="margin-top:24px">LuaLune Protection Engine</div><h1>Protect your <span>Luau</span> without the ugly stuff.</h1><p>Paste or drop your source, choose a protection level, and generate a fresh per-build loader. Every build gets new keys and a randomized runtime transform.</p><div class="row" style="justify-content:center"><button class="btn" onclick="showAuth()">Open workspace</button><a class="btn alt" href="https://discord.gg/yW5SkvuWqE" target="_blank" rel="noreferrer">Join Discord</a></div></main>
-<section class="cards"><div class="card"><div class="eyebrow">01</div><h3>Randomized builds</h3><p>Fresh keys and build-specific transforms make identical source produce different protected payloads.</p></div><div class="card"><div class="eyebrow">02</div><h3>Private workspace</h3><p>Authentication and row-level security keep each user's projects separated.</p></div><div class="card"><div class="eyebrow">03</div><h3>Fast delivery</h3><p>Generate a loader immediately and copy it straight into your workflow.</p></div></section>
-</section>
+  <div id="announcements"></div>
 
-<section id="auth" class="auth hidden"><div class="panel">
-<div class="tabs"><button id="loginTab" class="tab active" onclick="setMode('login')">Sign in</button><button id="signupTab" class="tab" onclick="setMode('signup')">Create account</button></div>
-<form id="authForm"><div class="eyebrow">Account</div><h2 id="authTitle">Welcome back</h2><label>Email</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com" required><div id="usernameWrap" class="hidden"><label>Display name <span class="muted">(optional)</span></label><input id="username" autocomplete="nickname" minlength="3" maxlength="24" placeholder="kers0ne"></div><label>Password</label><input id="password" type="password" autocomplete="current-password" minlength="8" required><div id="tos" class="hidden"><label><input id="agree" type="checkbox" style="width:auto;margin-right:8px">I agree to the LuaLune Terms of Service.</label></div><div id="authMsg"></div><button class="btn" style="width:100%;margin-top:12px" id="authBtn">Sign in</button></form>
-</div></section>
+  <!-- ---------------------------------------------------------------- home -->
+  <section id="home">
+    <main class="hero">
+      <div class="heroGlow"></div>
+      <div class="logoMarkBig"><img src="/logo-256.png" alt=""></div>
+      <div class="pill">Luau protection &bull; randomized builds &bull; private delivery</div>
+      <div class="eyebrow" style="margin-top:22px">LuaLune Protection Engine</div>
+      <h1>Protect your <span>Luau</span> without the ugly stuff.</h1>
+      <p class="lead">Paste or drop your source, pick an engine, and get a fresh per-build loader. The <b>LuaLune Obfuscator</b> encrypts your payload with a new key every time; the <b>Flow</b> engine flattens control flow and rewrites identifiers, strings and numbers.</p>
+      <div class="row" style="justify-content:center;margin-top:26px">
+        <button class="btn" onclick="showAuth()">Open workspace</button>
+        <button class="btn alt" onclick="go('plans')">See plans</button>
+      </div>
+    </main>
 
-<section id="dashboard" class="dash hidden"><div class="row between"><div><h2>Dashboard</h2><div class="muted" id="who"></div></div><button class="btn alt" onclick="logout()">Sign out</button></div>
-<div class="grid" style="margin-top:20px"><div class="panel"><div class="eyebrow">Build</div><h3>Create protected script</h3><label>Script name</label><input id="scriptName" placeholder="My script"><label>Luau source</label><textarea id="source" placeholder="-- paste Luau here\nprint("Hello from LuaLune")"></textarea><label>Protection</label><select id="strength" class="select"><option value="strong">Strong — maximum built-in protection</option><option value="medium">Medium — balanced protection</option><option value="weak">Weak — lower overhead</option><option value="light">Minify/Light — fastest build</option></select><div class="muted" style="margin-top:10px;font-size:12px">Tip: keep credentials and server secrets out of scripts. Obfuscation raises analysis cost; it is not encryption.</div><div id="createMsg"></div><button class="btn" style="margin-top:12px" onclick="createScript()">Obfuscate & create</button></div>
-<div class="panel"><div class="row between"><h3>Your scripts</h3><button class="btn alt" onclick="loadScripts()">Refresh</button></div><div id="scripts" class="muted">Loading...</div></div></div>
-</section>
+    <section class="cards">
+      <div class="card"><div class="eyebrow">01</div><h3>LuaLune Obfuscator</h3><p>Randomized payload encryption, shuffled chunk delivery, an integrity check and a runtime decoder that rebuilds your chunk in memory.</p></div>
+      <div class="card"><div class="eyebrow">02</div><h3>Flow &amp; Vault</h3><p>Flow flattens control flow and rewrites identifiers, strings and numbers. Vault cascades three transforms with per-segment keys, decoy records and integrity checks.</p></div>
+      <div class="card"><div class="eyebrow">03</div><h3>Delivery built in</h3><p>Stable loader URLs, permanent or timed keys, HWID whitelists, execution logs and workspace sharing.</p></div>
+    </section>
+
+    <section class="cards" style="margin-top:16px">
+      <div class="card"><b>Never breaks your script</b><p>Each pass verifies the build, and anything that cannot be transformed safely is skipped with a warning instead of shipping a broken script.</p></div>
+      <div class="card"><b>Gold-standard accounts</b><p>Email or username sign-in, sessions, a human check on signup and per-plan usage limits.</p></div>
+      <div class="card"><b>Honest promises</b><p>Obfuscation raises the cost of reading your source. It is not encryption of secrets — nothing that must stay confidential belongs in a script.</p></div>
+    </section>
+  </section>
+
+  <!-- ---------------------------------------------------------------- auth -->
+  <section id="auth" class="auth hidden">
+    <div class="panel">
+      <div class="tabs">
+        <button id="loginTab" class="tab active" onclick="setMode('login')">Sign in</button>
+        <button id="signupTab" class="tab" onclick="setMode('signup')">Create account</button>
+      </div>
+      <form id="authForm">
+        <div class="eyebrow">Account</div>
+        <h2 id="authTitle">Welcome back</h2>
+        <label>Username</label>
+        <input id="username" autocomplete="username" minlength="3" maxlength="24" placeholder="your_username" required>
+        <div id="emailWrap" class="hidden">
+          <label>Email <span class="muted small">(optional)</span></label>
+          <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+        </div>
+        <label>Password</label>
+        <input id="password" type="password" autocomplete="current-password" minlength="8" required>
+        <div id="tosWrap" class="hidden">
+          <label class="row" style="align-items:flex-start">
+            <input id="agree" type="checkbox">
+            <span class="small">I have read and accept the <a href="#" onclick="go('tos');return false">LuaLune Terms of Service</a>.</span>
+          </label>
+        </div>
+        <div id="captchaWrap" class="hidden">
+          <label>Human check</label>
+          <div class="small muted" id="captchaState">Preparing challenge…</div>
+          <input id="captchaInput" class="tiny mono" readonly>
+        </div>
+        <div id="authMsg" class="msg muted"></div>
+        <button class="btn" style="width:100%;margin-top:8px" id="authBtn">Sign in</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ----------------------------------------------------------- dashboard -->
+  <section id="dashboard" class="dash hidden">
+    <div class="row between">
+      <div>
+        <h2 style="margin:0">Dashboard</h2>
+        <div class="muted" id="who"></div>
+      </div>
+      <div class="row">
+        <span class="chip gold" id="planChip">free</span>
+        <button class="btn alt" onclick="logout()">Log out</button>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:18px">
+      <div class="stat"><div class="muted small">Builds this month</div><div class="metric" id="usageMetric">–</div><div class="muted tiny" id="usageNote"></div></div>
+      <div class="stat"><div class="muted small">Your scripts</div><div class="metric" id="scriptMetric">–</div><div class="muted tiny" id="scriptNote"></div></div>
+    </div>
+
+    <nav class="row" style="margin:22px 0 8px">
+      <button class="btn small" onclick="tab('build')" id="tab-build">Build</button>
+      <button class="btn alt small" onclick="tab('scripts')" id="tab-scripts">Scripts</button>
+      <button class="btn alt small" onclick="tab('keys')" id="tab-keys">Key system</button>
+      <button class="btn alt small" onclick="tab('workspace')" id="tab-workspace">Workspace</button>
+      <button class="btn alt small" onclick="tab('account')" id="tab-account">Account</button>
+      <button class="btn alt small hidden" onclick="tab('admin')" id="tab-admin">Admin</button>
+    </nav>
+
+    <!-- build -->
+    <div id="pane-build" class="grid">
+      <div class="panel">
+        <div class="eyebrow">Build</div>
+        <h3>Create a protected script</h3>
+        <label>Script name</label>
+        <input id="scriptName" placeholder="my-awesome-script" maxlength="80">
+        <label>Engine</label>
+        <div class="engines" id="enginePicker"></div>
+        <div class="muted tiny" id="engineNote"></div>
+        <label>Luau source</label>
+        <textarea id="source" placeholder="-- paste Luau here&#10;print(&quot;Hello from LuaLune&quot;)"></textarea>
+        <div class="row between">
+          <div>
+            <label>Upload a file</label>
+            <input id="scriptFile" type="file" accept=".lua,.luau,.txt" class="small">
+            <div class="muted tiny">Only .lua, .luau and .txt files, max 2 MB.</div>
+          </div>
+        </div>
+        <label>Options</label>
+        <div class="toggles" id="options"></div>
+        <label class="row" style="margin-top:14px"><input id="keyRequired" type="checkbox"> <span class="small">Require a key before this script loads</span></label>
+        <div id="createMsg" class="msg muted"></div>
+        <button class="btn" style="margin-top:8px" id="buildBtn" onclick="createScript()">Obfuscate</button>
+      </div>
+      <div class="panel">
+        <h3>Result</h3>
+        <div id="result" class="muted small">Builds appear here with the loader URL and the passes that ran.</div>
+      </div>
+    </div>
+
+    <!-- scripts -->
+    <div id="pane-scripts" class="panel hidden">
+      <div class="row between">
+        <h3 style="margin:0">Your scripts</h3>
+        <div class="row">
+          <button class="btn alt small" onclick="loadScripts()">Refresh</button>
+          <button class="btn small" onclick="tab('build')">New script</button>
+        </div>
+      </div>
+      <div id="editPanel" class="panel hidden" style="margin:16px 0;border-color:var(--gold-3)">
+        <div class="row between">
+          <b id="editTitle" style="color:var(--gold)">Replace source</b>
+          <button class="btn alt small" onclick="closeEdit()">Close</button>
+        </div>
+        <div class="muted small">Upload or paste the new source. The loader URL and keys stay exactly the same — only the protected build is replaced.</div>
+        <label>New source file <span class="muted small">(.lua, .luau, .txt — max 2 MB)</span></label>
+        <input id="editFile" type="file" accept=".lua,.luau,.txt" class="small">
+        <label>Or paste it</label>
+        <textarea id="editSource" placeholder="-- new version of your script"></textarea>
+        <label>Engine</label>
+        <select id="editEngine">
+          <option value="payload">LuaLune Obfuscator</option>
+          <option value="flow">LuaLune Obfuscator - Flow</option>
+          <option value="vault">LuaLune Obfuscator - Vault</option>
+          <option value="none">None</option>
+        </select>
+        <div id="editMsg" class="msg muted"></div>
+        <button class="btn" style="margin-top:8px" onclick="saveEdit()">Re-obfuscate</button>
+      </div>
+      <div id="scripts" class="muted">Loading…</div>
+      <div id="sharedWithMe" style="margin-top:22px"></div>
+    </div>
+
+    <!-- keys -->
+    <div id="pane-keys" class="grid hidden">
+      <div class="panel">
+        <h3>Create keys</h3>
+        <label>Duration</label>
+        <select id="keyDuration" class="select"></select>
+        <label>How many</label>
+        <input id="keyAmount" type="number" min="1" max="50" value="1">
+        <label>Bind to a script</label>
+        <select id="keyScript"></select>
+        <label>Label <span class="muted small">(optional)</span></label>
+        <input id="keyLabel" maxlength="60" placeholder="beta tester">
+        <div id="keyMsg" class="msg muted"></div>
+        <button class="btn" style="margin-top:8px" onclick="createKeys()">Generate keys</button>
+      </div>
+      <div class="panel">
+        <div class="row between"><h3 style="margin:0">Your keys</h3><button class="btn alt small" onclick="loadKeys()">Refresh</button></div>
+        <div id="keys" class="muted small" style="margin-top:12px">Loading…</div>
+      </div>
+    </div>
+
+    <!-- workspace -->
+    <div id="pane-workspace" class="grid hidden">
+      <div class="panel">
+        <h3>Invite codes</h3>
+        <p class="muted small">Create a code and send it to a teammate. Plan invites move an account onto a paid plan; workspace invites grant access.</p>
+        <label>Type</label>
+        <select id="inviteKind">
+          <option value="workspace">Workspace access</option>
+          <option value="plan">Plan upgrade</option>
+        </select>
+        <label>Plan <span class="muted small">(for plan invites)</span></label>
+        <select id="invitePlan"><option value="pro">Pro</option><option value="premium">Premium</option></select>
+        <label>Max uses</label>
+        <input id="inviteUses" type="number" min="1" max="100" value="1">
+        <div id="inviteMsg" class="msg muted"></div>
+        <button class="btn" style="margin-top:8px" onclick="createInvite()">Create invite</button>
+        <div id="invites" class="small" style="margin-top:14px"></div>
+      </div>
+      <div class="panel">
+        <h3>Sharing</h3>
+        <p class="muted small">Share a script with another LuaLune account. Sharing is available on Pro and Premium.</p>
+        <label>Username</label>
+        <input id="shareUser" placeholder="teammate">
+        <label>Script</label>
+        <select id="shareScript"></select>
+        <div id="shareMsg" class="msg muted"></div>
+        <button class="btn" style="margin-top:8px" onclick="createShare()">Share</button>
+        <h4>Shared with you</h4>
+        <div id="sharedWithMe2" class="small muted">Nothing yet.</div>
+        <h4>Redeem a code</h4>
+        <input id="redeemCode" placeholder="LL-XXXXXX-XXXXXX">
+        <button class="btn alt small" style="margin-top:8px" onclick="redeem()">Redeem</button>
+        <div id="redeemMsg" class="msg muted"></div>
+      </div>
+    </div>
+
+    <!-- account -->
+    <div id="pane-account" class="panel hidden">
+      <h3>Account</h3>
+      <div id="accountInfo" class="muted small"></div>
+      <h4>Execution logs</h4>
+      <p class="muted small">Pick a script to see who loaded it, which key was used and whether it was denied.</p>
+      <div class="row">
+        <select id="logScript" style="max-width:320px"></select>
+        <button class="btn alt small" onclick="loadLogs()">Load logs</button>
+      </div>
+      <div id="logs" class="small muted" style="margin-top:12px"></div>
+    </div>
+
+    <!-- admin -->
+    <div id="pane-admin" class="hidden">
+      <div class="grid">
+        <div class="panel">
+          <h3>Platform</h3>
+          <div id="adminStats" class="muted small">Loading…</div>
+        </div>
+        <div class="panel">
+          <h3>Broadcast</h3>
+          <label>Title</label>
+          <input id="annTitle" maxlength="120" placeholder="Build 2.0 is live">
+          <label>Body</label>
+          <textarea id="annBody" style="min-height:110px" maxlength="2000" placeholder="What changed?"></textarea>
+          <button class="btn" style="margin-top:10px" onclick="broadcast()">Publish</button>
+          <div id="annMsg" class="msg muted"></div>
+          <div id="annList" class="small" style="margin-top:12px"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:18px">
+        <div class="row between"><h3 style="margin:0">Users</h3><input id="userSearch" placeholder="search username" style="max-width:240px"></div>
+        <div id="users" class="small muted" style="margin-top:12px">Loading…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- plans -->
+  <section id="plans" class="hidden">
+    <div class="hero" style="padding-bottom:20px">
+      <div class="eyebrow">Pricing</div>
+      <h1 style="font-size:clamp(34px,5vw,54px)">One-time <span>gold</span> access</h1>
+      <p class="lead">No subscriptions. Buy a plan once, keep the limits until you change them.</p>
+    </div>
+    <div class="plans" id="planList"></div>
+  </section>
+
+  <!-- ------------------------------------------------------------------ tos -->
+  <section id="tos" class="hidden">
+    <div class="panel tos" style="max-width:820px;margin:34px auto">
+      <div class="eyebrow">Legal</div>
+      <h2 style="margin-top:8px">LuaLune Terms of Service</h2>
+      <div class="muted small" id="tosMeta"></div>
+      <div id="tosBody" style="margin-top:18px"></div>
+      <button class="btn alt" style="margin-top:20px" onclick="go('home')">Back</button>
+    </div>
+  </section>
+
+  <footer>
+    <div>
+      <span>&copy; <span id="year"></span> LuaLune — <span id="footerTag">LuaLune Obfuscator</span></span>
+      <div class="tiny muted-2" id="engineAttribution" style="margin-top:6px"></div>
+    </div>
+    <span class="row"><a href="/api/meta">API</a><span class="muted-2">•</span><a href="#" onclick="go('tos');return false">Terms</a><span class="muted-2">•</span><a href="/healthz">Status</a></span>
+  </footer>
 </div>
+
 <script>
-let mode="login",token=localStorage.getItem("lualune_access_token");
-const $=id=>document.getElementById(id);
-function show(id){["home","auth","dashboard"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
-function showAuth(){show("auth");setMode("login")}
-function setMode(m){mode=m;$("loginTab").classList.toggle("active",m==="login");$("signupTab").classList.toggle("active",m==="signup");$("tos").classList.toggle("hidden",m!=="signup");$("usernameWrap").classList.toggle("hidden",m!=="signup");$("authTitle").textContent=m==="login"?"Welcome back":"Create your workspace";$("authBtn").textContent=m==="login"?"Sign in":"Create account";$("password").autocomplete=m==="login"?"current-password":"new-password";$("authMsg").textContent=""}
-$("authForm").addEventListener("submit",async e=>{e.preventDefault();$("authMsg").className="muted";$("authMsg").textContent="Working...";if(mode==="signup"&&!$("agree").checked){$("authMsg").className="error";$("authMsg").textContent="Accept the Terms of Service first.";return}
-const body={email:$("email").value,password:$("password").value,username:$("username")?.value||""};const r=await fetch("/api/auth/"+mode,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));
-if(!r.ok){$("authMsg").className="error";$("authMsg").textContent=d.error||"Request failed";return}
-if(!d.session){$("authMsg").className="ok";$("authMsg").textContent="Account created. If email confirmation is enabled, confirm it before signing in.";return}
-token=d.session.access_token;localStorage.setItem("lualune_access_token",token);boot();
+/* ------------------------------------------------------------------ state */
+const state = {
+  token: localStorage.getItem("lualune_token") || null,
+  user: null, profile: null, meta: null,
+  engine: "payload",
+  options: { rename: true, strings: true, numbers: true, junk: true, flatten: true, harden: true },
+  scripts: [], keys: [], durations: [],
+  captcha: null, captchaNonce: null, solving: false,
+  tosAccepted: false,
+};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtBytes = (n) => n > 1024 * 1024 ? (n / 1048576).toFixed(1) + " MB" : n > 1024 ? (n / 1024).toFixed(1) + " KB" : n + " B";
+const fmtDate = (v) => v ? new Date(v).toLocaleString() : "—";
+
+/* -------------------------------------------------------------------- api */
+async function api(path, { method = "GET", body, text } = {}) {
+  const res = await fetch(path, {
+    method,
+    headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(state.token ? { Authorization: "Bearer " + state.token } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) { logout(false); throw new Error("Session expired. Sign in again."); }
+  if (text) return { res, data: await res.text() };
+  const data = res.status === 204 ? {} : await res.json().catch(() => ({}));
+  if (!res.ok) { const err = new Error(data.error || "Request failed"); err.status = res.status; err.data = data; throw err; }
+  return { res, data };
+}
+const setMsg = (el, message, kind = "muted") => { el.className = "msg " + kind; el.textContent = message; };
+
+/* ------------------------------------------------------------ navigation */
+const PAGES = ["home", "auth", "dashboard", "plans", "tos"];
+function go(page) {
+  PAGES.forEach((p) => $(p).classList.toggle("hidden", p !== page));
+  if (page === "dashboard" && !state.token) return go("home");
+  if (page === "plans") renderPlans();
+  window.scrollTo({ top: 0 });
+}
+function showAuth(mode = "login") { go("auth"); setMode(mode); }
+
+/* ------------------------------------------------------------------ boot */
+async function boot() {
+  $("year").textContent = new Date().getFullYear();
+  await loadMeta();
+  loadAnnouncements();
+  renderEnginePicker();
+  renderOptions();
+  renderNav();
+  if (state.token) {
+    try {
+      const { data } = await api("/api/auth/me");
+      state.user = data.user; state.profile = data.profile;
+      renderAccount(data);
+      go("dashboard");
+      if (data.tosUpdateRequired) {
+        setMsg($("authMsg"), "Terms of Service updated — accept them in the Account tab.", "muted");
+        tab("account");
+      }
+      return;
+    } catch { /* fall through to signed out */ }
+  }
+  go("home");
+}
+function renderNav() {
+  $("navActions").innerHTML = state.token
+    ? '<button class="btn small" onclick="go(\'dashboard\')">Dashboard</button>'
+    : '<button class="btn small" onclick="showAuth()">Sign in</button>';
+}
+async function loadMeta() {
+  try { state.meta = (await api("/api/meta")).data; } catch { state.meta = null; }
+  if (state.meta) {
+    document.title = "LuaLune — " + state.meta.product;
+    $("footerTag").textContent = state.meta.product;
+    if ((state.meta.engines || []).some((e) => e.id === "lune")) {
+      $("engineAttribution").innerHTML = "Lune Obfuscator engine based on Prometheus by Elias Oelschner — " +
+        '<a href="https://github.com/prometheus-lua/Prometheus" target="_blank" rel="noreferrer">source</a> (MIT).';
+    }
+  }
+}
+async function loadAnnouncements() {
+  try {
+    const { data } = await api("/api/announcements");
+    $("announcements").innerHTML = (data.announcements || []).map((a) =>
+      '<div class="announce"><b>' + esc(a.title) + '</b><div class="small muted">' + esc(a.body) + '</div></div>').join("");
+  } catch { /* announcements are optional */ }
+}
+
+/* ------------------------------------------------------------------ plans */
+function renderPlans() {
+  const plans = state.meta?.plans || [];
+  $("planList").innerHTML = plans.map((p) => `
+    <div class="plan ${p.id === "premium" ? "featured" : ""}">
+      ${p.id === "premium" ? '<span class="chip gold badge">Best value</span>' : ""}
+      <div class="eyebrow">${esc(p.name)}</div>
+      <div class="price">${p.price === 0 ? "Free" : "$" + p.price}<span class="muted small"> ${p.price === 0 ? "" : "· one-time payment"}</span></div>
+      <div class="muted small" style="margin-top:6px">${esc(p.blurb)}</div>
+      <ul>${p.features.map((f) => "<li>" + esc(f) + "</li>").join("")}</ul>
+      <div class="small muted" style="margin-top:14px">
+        ${p.limits.scripts === -1 ? "Unlimited" : p.limits.scripts} scripts &middot;
+        ${p.limits.obfuscationsPerMonth === -1 ? "unlimited" : p.limits.obfuscationsPerMonth} builds / month &middot;
+        ${p.limits.keys === -1 ? "unlimited" : p.limits.keys} keys
+      </div>
+      <button class="btn ${p.id === "free" ? "alt" : ""}" style="margin-top:16px;width:100%" onclick="${state.token ? `inviteFor('${p.id}')` : "showAuth('signup')"}">
+        ${p.id === "free" ? (state.token ? "Current tier" : "Start free") : "Get " + esc(p.name)}
+      </button>
+    </div>`).join("");
+}
+function inviteFor(plan) { tab("workspace"); $("inviteKind").value = "plan"; $("invitePlan").value = plan; setMsg($("inviteMsg"), "Create an invite code for the " + plan + " plan and send it to whoever needs it.", "muted"); }
+
+/* -------------------------------------------------------------------- tos */
+async function renderTos() {
+  try {
+    const { data } = await api("/api/tos");
+    $("tosMeta").textContent = "Version " + data.version + " · updated " + data.updated + " · contact " + data.contact;
+    $("tosBody").innerHTML = data.sections.map((s) => "<h3>" + esc(s.title) + "</h3><p>" + esc(s.body) + "</p>").join("");
+  } catch (e) { $("tosBody").innerHTML = '<p class="msg error">' + esc(e.message) + "</p>"; }
+}
+const _go = go;
+go = function (page) { _go(page); if (page === "tos") renderTos(); };
+
+/* ------------------------------------------------------------------- auth */
+function setMode(mode) {
+  state.mode = mode;
+  $("loginTab").classList.toggle("active", mode === "login");
+  $("signupTab").classList.toggle("active", mode === "signup");
+  $("tosWrap").classList.toggle("hidden", mode !== "signup");
+  $("captchaWrap").classList.toggle("hidden", mode !== "signup");
+  $("emailWrap").classList.toggle("hidden", mode !== "signup");
+  $("authTitle").textContent = mode === "login" ? "Welcome back" : "Create your workspace";
+  $("authBtn").textContent = mode === "login" ? "Sign in" : "Create account";
+  $("password").autocomplete = mode === "login" ? "current-password" : "new-password";
+  setMsg($("authMsg"), "");
+  if (mode === "signup") prepareCaptcha(); else resetCaptcha();
+}
+
+/* Proof-of-work human check: solved locally in a worker-free chunked loop. */
+async function prepareCaptcha() {
+  state.captchaNonce = null;
+  state.solving = true;
+  $("captchaInput").value = "";
+  $("captchaState").textContent = "Requesting challenge…";
+  try {
+    const { data } = await api("/api/captcha");
+    state.captcha = data;
+    $("captchaState").textContent = "Solving… (difficulty " + data.difficulty + " bits)";
+    const nonce = await solveChallenge(data.challenge, data.difficulty);
+    state.captchaNonce = nonce;
+    state.solving = false;
+    $("captchaInput").value = "solved · nonce " + nonce;
+    $("captchaState").textContent = "Verified locally. The server checks the proof on submit.";
+  } catch (e) {
+    state.solving = false;
+    $("captchaState").textContent = "Could not prepare the human check: " + e.message;
+  }
+}
+function resetCaptcha() { state.captcha = null; state.captchaNonce = null; state.solving = false; }
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function solveChallenge(challenge, difficulty) {
+  const prefix = "0".repeat(Math.ceil(difficulty / 4));
+  for (let nonce = 0; nonce < 5_000_000; nonce++) {
+    const digest = await sha256Hex(challenge + nonce);
+    if (digest.startsWith(prefix)) return String(nonce);
+    if (nonce % 2000 === 1999) await new Promise((r) => setTimeout(r, 0)); // keep the tab responsive
+  }
+  throw new Error("human check took too long");
+}
+
+$("authForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const username = $("username").value.trim();
+  const password = $("password").value;
+  try {
+    if (state.mode === "signup") {
+      if (!$("agree").checked) return setMsg($("authMsg"), "Accept the Terms of Service first.", "error");
+      if (state.solving) return setMsg($("authMsg"), "Human check still running…", "muted");
+      setMsg($("authMsg"), "Creating your account…");
+      const { data } = await api("/api/auth/signup", { method: "POST", body: {
+        username, password, email: $("email").value.trim(),
+        captcha: state.captcha?.challenge, captchaNonce: state.captchaNonce,
+      }});
+      if (!data.session) return setMsg($("authMsg"), "Account created. Check your email to confirm it, then sign in.", "ok");
+      state.token = data.session.access_token;
+      localStorage.setItem("lualune_token", state.token);
+      await boot();
+      return;
+    }
+    setMsg($("authMsg"), "Signing in…");
+    const { data } = await api("/api/auth/login", { method: "POST", body: { identifier: username, password } });
+    state.token = data.session.access_token;
+    localStorage.setItem("lualune_token", state.token);
+    await boot();
+  } catch (e) {
+    setMsg($("authMsg"), e.message, "error");
+  }
 });
-async function api(url,opts={}){opts.headers={...(opts.headers||{}),Authorization:"Bearer "+token,"Content-Type":"application/json"};const r=await fetch(url,opts);if(r.status===401){logout();throw Error("Session expired")}return r}
-async function boot(){if(!token){show("home");$("navActions").innerHTML='<button class="btn alt" onclick="showAuth()">Sign in</button>';return}try{const r=await api("/api/auth/me");const d=await r.json();$("who").textContent=d.user?.user_metadata?.username||d.user?.email||"Account";show("dashboard");$("navActions").innerHTML='<span class="muted">Signed in</span>';loadScripts()}catch{show("home")}}
-async function logout(){try{if(token)await api("/api/auth/logout",{method:"POST"})}catch{}token=null;localStorage.removeItem("lualune_access_token");boot()}
-async function loadScripts(){const box=$("scripts");box.textContent="Loading...";try{const r=await api("/api/scripts");const d=await r.json();if(!r.ok)throw Error(d.error);if(!d.scripts.length){box.innerHTML='<div class="muted">No scripts yet.</div>';return}box.innerHTML=d.scripts.map(s=>'<div class="script"><div class="row between"><b>'+esc(s.name)+'</b><button class="btn danger" onclick="deleteScript(\''+s.id+'\')">Delete</button></div><div class="muted">'+new Date(s.created_at).toLocaleString()+'</div><div class="loader" id="l-'+s.id+'">loadstring(game:HttpGet("/loader/'+s.id+'"))()</div><button class="btn alt" style="margin-top:8px" onclick="copyLoader(\''+s.id+'\')">Copy loader</button></div>').join("")}catch(e){box.innerHTML='<div class="error">'+esc(e.message)+'</div>'}}
-async function createScript(){const msg=$("createMsg");msg.className="muted";msg.textContent="Obfuscating...";try{const r=await api("/api/scripts",{method:"POST",body:JSON.stringify({name:$("scriptName").value,source:$("source").value,strength:$("strength").value})});const d=await r.json();if(!r.ok)throw Error(d.error);msg.className="ok";msg.textContent="Created. Loader copied below.";await navigator.clipboard?.writeText(d.loader).catch(()=>{});$("scriptName").value="";$("source").value="";loadScripts()}catch(e){msg.className="error";msg.textContent=e.message}}
-async function deleteScript(id){if(!confirm("Delete this script?"))return;await api("/api/scripts/"+id,{method:"DELETE"});loadScripts()}
-async function copyLoader(id){const s=await api("/api/scripts").then(r=>r.json());const x=s.scripts.find(v=>v.id===id);if(x)navigator.clipboard?.writeText('loadstring(game:HttpGet("'+location.origin+'/loader/'+id+'"))()')}
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+async function logout(callApi = true) {
+  if (callApi && state.token) { try { await api("/api/auth/logout", { method: "POST" }); } catch { /* ignore */ } }
+  state.token = null; state.user = null; state.profile = null;
+  state.scripts = []; state.keys = [];
+  localStorage.removeItem("lualune_token");
+  renderNav(); go("home");
+}
+
+/* -------------------------------------------------------------- dashboard */
+function tab(name) {
+  ["build", "scripts", "keys", "workspace", "account", "admin"].forEach((t) => {
+    $("pane-" + t).classList.toggle("hidden", t !== name);
+    $("tab-" + t).className = (t === name ? "btn" : "btn alt") + " small";
+  });
+  if (name === "scripts") loadScripts();
+  if (name === "keys") loadKeys();
+  if (name === "workspace") loadWorkspace();
+  if (name === "admin") loadAdmin();
+}
+
+const ENGINE_NOTES = {
+  lune: "AST-level engine powered by Prometheus inside a WASM Lua VM. Enable the engine bundle to use it.",
+  payload: "Fastest build. Whole-chunk encryption with shuffled segments, an integrity check and a runtime decoder.",
+  flow: "Source-level protection for Luau-only executors: flattening, renaming, encrypted strings and numbers.",
+  vault: "Strongest build. Three cascaded transforms, per-segment checksums, decoy records and a magic-marker check. Pure arithmetic, so no bit32 needed.",
+  none: "No protection — the script is served exactly as written.",
+};
+function renderEnginePicker() {
+  const all = state.meta?.engines || [{ id: "payload", name: "LuaLune Obfuscator", tagline: "" }, { id: "flow", name: "LuaLune Obfuscator - Flow", tagline: "" }];
+  const engines = all.filter((e) => e.id !== "none" && e.available !== false);
+  const optional = all.filter((e) => e.available === false);
+  if (!engines.some((e) => e.id === state.engine)) state.engine = engines[0]?.id || "payload";
+  $("enginePicker").innerHTML = engines.map((e) => `
+    <div class="engine ${e.id === state.engine ? "active" : ""}" data-engine="${e.id}" onclick="pickEngine('${e.id}')">
+      <b>${esc(e.name)}</b><small>${esc(e.tagline)}</small>
+    </div>`).join("");
+  $("engineNote").innerHTML = optional.length
+    ? "Optional engine not installed on this instance: " + optional.map((e) => "<b>" + esc(e.name) + "</b>").join(", ") +
+      '. Add the bundle (<span class="mono">npm install wasmoon</span> + <span class="mono">vendor/prometheus</span>) to enable it; requests for it fall back to Vault.'
+    : (ENGINE_NOTES[state.engine] || "");
+  pickEngine(state.engine, true);
+}
+function pickEngine(id, keepNote) {
+  state.engine = id;
+  [...document.querySelectorAll(".engine")].forEach((el) => el.classList.toggle("active", el.dataset.engine === id));
+  // the source-level passes only apply to the flow engine; every engine keeps the guard toggle
+  if (!keepNote) $("engineNote").textContent = ENGINE_NOTES[id] || "";
+  const flowOnly = ["rename", "strings", "numbers", "junk", "flatten"];
+  [...document.querySelectorAll("[data-option]")].forEach((el) => {
+    const key = el.dataset.option;
+    el.classList.toggle("hidden", id === "none" || (flowOnly.includes(key) && id !== "flow"));
+  });
+}
+const OPTION_LABELS = {
+  rename: "Identifier renaming", strings: "String encryption", numbers: "Number encryption", junk: "Dead code",
+  flatten: "Control flow flattening", harden: "Anti-tamper guard",
+};
+function renderOptions() {
+  $("options").innerHTML = Object.entries(OPTION_LABELS).map(([key, label]) => `
+    <label class="toggle ${state.options[key] ? "on" : ""}" data-option="${key}">
+      <input type="checkbox" ${state.options[key] ? "checked" : ""} onchange="toggleOption('${key}', this.checked)"> ${label}
+    </label>`).join("");
+}
+function toggleOption(key, on) {
+  state.options[key] = on;
+  document.querySelector('[data-option="' + key + '"]').classList.toggle("on", on);
+}
+
+$("scriptFile").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) return setMsg($("createMsg"), "That file is bigger than 2 MB.", "error");
+  $("source").value = await file.text();
+  if (!$("scriptName").value) $("scriptName").value = file.name.replace(/\.[^.]+$/, "");
+  setMsg($("createMsg"), "Loaded " + file.name, "ok");
+});
+
+async function createScript() {
+  const msg = $("createMsg");
+  const source = $("source").value;
+  if (!source.trim()) return setMsg(msg, "Paste or upload some Luau first.", "error");
+  setMsg(msg, "Obfuscating…");
+  $("buildBtn").disabled = true;
+  try {
+    const { data } = await api("/api/scripts", { method: "POST", body: {
+      name: $("scriptName").value.trim() || "untitled",
+      source, engine: state.engine, key_required: $("keyRequired").checked, ...state.options,
+    }});
+    setMsg(msg, "Build ready.", "ok");
+    renderResult(data);
+    await refreshMe();
+  } catch (e) {
+    setMsg(msg, e.message, "error");
+    if (e.status === 428) tab("account");
+  } finally {
+    $("buildBtn").disabled = false;
+  }
+}
+
+function renderResult(data) {
+  const s = data.script, st = data.stats;
+  $("result").innerHTML = `
+    <div class="row between"><b style="color:var(--gold)">${esc(s.name)}</b><span class="chip gold">${esc(s.engineName)}</span></div>
+    <div class="muted small" style="margin:8px 0">build ${esc(st.buildId)} · ${fmtBytes(st.sourceBytes)} in → ${fmtBytes(st.outputBytes)} out · ratio ${st.ratio ?? "—"}</div>
+    <div class="small muted">Passes: ${(st.passes || []).map((p) => esc(p)).join(" → ")}</div>
+    ${st.renamed !== undefined ? '<div class="small muted">Identifiers renamed: ' + st.renamed + " · strings: " + (st.strings || 0) + " · numbers: " + (st.numbers || 0) + " · blocks: " + (st.chunks || 0) + "</div>" : ""}
+    ${(data.warnings || []).length ? '<div class="msg muted small">' + data.warnings.map(esc).join("<br>") + "</div>" : ""}
+    <label>Loader</label>
+    <div class="loader" id="resultLoader">${esc(data.loader)}</div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn small" onclick="copyText(document.getElementById('resultLoader').textContent, this)">Copy loader</button>
+      <button class="btn alt small" onclick="tab('scripts')">All scripts</button>
+    </div>`;
+}
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); if (btn) { btn.textContent = "Copied"; setTimeout(() => (btn.textContent = "Copy loader"), 1200); } }
+  catch { window.prompt("Copy this:", text); }
+}
+
+async function loadScripts() {
+  const box = $("scripts");
+  box.textContent = "Loading…";
+  try {
+    const { data } = await api("/api/scripts");
+    state.scripts = data.scripts || [];
+    renderScriptList();
+    renderShared(data.shared || []);
+    populateScriptPickers();
+  } catch (e) { box.innerHTML = '<div class="msg error">' + esc(e.message) + "</div>"; }
+}
+function renderScriptList() {
+  const box = $("scripts");
+  if (!state.scripts.length) { box.innerHTML = '<div class="muted">No scripts yet. Create your first build.</div>'; return; }
+  box.innerHTML = state.scripts.map((s) => `
+    <div class="script">
+      <div class="row between">
+        <b>${esc(s.name)}</b>
+        <div class="row">
+          <span class="chip ${s.key_required ? "gold" : ""}">${s.key_required ? "key required" : "open"}</span>
+          <span class="chip">${esc(s.engineName)}</span>
+          <button class="btn alt small" onclick="viewScript('${s.id}','${esc(s.name).replace(/'/g, "")}')">View</button>
+          <button class="btn alt small" onclick="openEdit('${s.id}','${esc(s.name).replace(/'/g, "")}','${esc(s.engine)}')">Edit</button>
+          <button class="btn small" onclick="copyLoader('${s.id}', this)">Copy loader</button>
+          <button class="btn alt small" onclick="togglePublic('${s.id}', ${s.public ? "false" : "true"})">${s.public ? "Make private" : "Make public"}</button>
+          <button class="btn danger small" onclick="deleteScript('${s.id}')">Delete</button>
+        </div>
+      </div>
+      <div class="muted small">build ${esc(s.build_id)} · updated ${fmtDate(s.updated_at)} · ${fmtBytes(s.source_bytes)} → ${fmtBytes(s.output_bytes)}</div>
+      <div class="loader">loadstring(game:HttpGet(location and location.origin .. "/loader/${s.id}" or "/loader/${s.id}"))()</div>
+    </div>`).join("");
+}
+function renderShared(shared) {
+  $("sharedWithMe").innerHTML = shared.length
+    ? "<h4>Shared with you</h4>" + shared.map((s) => '<div class="small muted">script ' + esc(s.script_id) + " from " + esc(s.owner_username) + "</div>").join("")
+    : "";
+  $("sharedWithMe2").innerHTML = shared.length
+    ? shared.map((s) => '<div>script ' + esc(s.script_id) + " · owner " + esc(s.owner_username) + "</div>").join("")
+    : "Nothing yet.";
+}
+async function copyLoader(id, btn) {
+  await copyText('loadstring(game:HttpGet("' + location.origin + "/loader/" + id + '"))()', btn);
+}
+async function viewScript(id, name) {
+  const { data } = await api("/api/scripts/" + id + "/view", { text: true });
+  const w = window.open("", "_blank");
+  if (w) { w.document.write("<title>" + esc(name) + " — LuaLune</title><pre style='white-space:pre-wrap;font:12px ui-monospace,monospace;background:#0b0906;color:#fff8df;padding:16px'>" + esc(data) + "</pre>"); w.document.close(); }
+  else setMsg($("createMsg"), "Allow pop-ups to view the protected build.", "error");
+}
+async function deleteScript(id) {
+  if (!confirm("Delete this script? The loader URL stops working immediately.")) return;
+  await api("/api/scripts/" + id, { method: "DELETE" });
+  loadScripts();
+}
+async function togglePublic(id, makePublic) {
+  await api("/api/scripts/" + id, { method: "PATCH", body: { public: makePublic } });
+  loadScripts();
+}
+
+/* --------------------------------------------------------------- edit flow */
+let editingId = null;
+function openEdit(id, name, engine) {
+  editingId = id;
+  $("editTitle").textContent = "Replace source for " + name;
+  $("editEngine").value = state.meta?.engines?.some((e) => e.id === engine) ? engine : "payload";
+  $("editSource").value = "";
+  $("editFile").value = "";
+  setMsg($("editMsg"), "");
+  $("editPanel").classList.remove("hidden");
+  $("editPanel").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function closeEdit() { editingId = null; $("editPanel").classList.add("hidden"); }
+$("editFile").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) return setMsg($("editMsg"), "That file is bigger than 2 MB.", "error");
+  $("editSource").value = await file.text();
+  setMsg($("editMsg"), "Loaded " + file.name + " — press Re-obfuscate.", "ok");
+});
+async function saveEdit() {
+  const source = $("editSource").value;
+  if (!editingId) return;
+  if (!source.trim()) return setMsg($("editMsg"), "Paste or upload the new source first.", "error");
+  setMsg($("editMsg"), "Re-obfuscating…");
+  try {
+    const { data } = await api("/api/scripts/" + editingId + "/rebuild", { method: "POST", body: { source, engine: $("editEngine").value, ...state.options } });
+    const warnings = (data.warnings || []).length ? " " + data.warnings.join(" ") : "";
+    setMsg($("editMsg"), "Rebuilt as build " + data.stats.buildId + "." + warnings, "ok");
+    closeEdit();
+    loadScripts();
+  } catch (e) {
+    setMsg($("editMsg"), e.message, "error");
+    if (e.status === 428) { closeEdit(); tab("account"); }
+  }
+}
+
+/* -------------------------------------------------------------------- keys */
+async function loadKeys() {
+  try {
+    const { data } = await api("/api/keys");
+    state.keys = data.keys || [];
+    state.durations = data.durations || [];
+    $("keyDuration").innerHTML = state.durations.map((d) => '<option value="' + d.id + '">' + esc(d.label) + "</option>").join("");
+    renderKeys();
+  } catch (e) { $("keys").innerHTML = '<div class="msg error">' + esc(e.message) + "</div>"; }
+}
+function renderKeys() {
+  $("keys").innerHTML = state.keys.length ? state.keys.map((k) => `
+    <div class="script">
+      <div class="row between">
+        <span class="mono" style="color:var(--gold)">${esc(k.value)}</span>
+        <span class="chip ${k.state === "active" ? "gold" : ""}">${esc(k.state)}</span>
+      </div>
+      <div class="tiny muted">${esc(k.label || "no label")} · uses ${k.uses || 0} · hwid ${esc(k.hwid || "unbound")} · expires ${k.expires_at ? fmtDate(k.expires_at) : "never"}</div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn alt small" onclick="resetKey('${k.id}')">Reset HWID</button>
+        <button class="btn danger small" onclick="deleteKey('${k.id}')">Delete</button>
+      </div>
+    </div>`).join("") : '<div class="muted">No keys yet.</div>';
+}
+async function createKeys() {
+  const msg = $("keyMsg");
+  setMsg(msg, "Generating…");
+  try {
+    await api("/api/keys", { method: "POST", body: {
+      duration: $("keyDuration").value, amount: Number($("keyAmount").value) || 1,
+      script_id: $("keyScript").value || null, label: $("keyLabel").value.trim(),
+    }});
+    setMsg(msg, "Keys created.", "ok");
+    loadKeys();
+  } catch (e) { setMsg(msg, e.message, "error"); }
+}
+async function resetKey(id) { await api("/api/keys/" + id + "/reset", { method: "POST" }); loadKeys(); }
+async function deleteKey(id) { if (confirm("Delete this key?")) { await api("/api/keys/" + id, { method: "DELETE" }); loadKeys(); } }
+
+/* --------------------------------------------------------------- workspace */
+async function loadWorkspace() {
+  try {
+    const [invites, shares] = await Promise.all([api("/api/invites"), api("/api/shares")]);
+    $("invites").innerHTML = (invites.data.invites || []).length
+      ? invites.data.invites.map((i) => '<div class="row between" style="padding:6px 0;border-bottom:1px dashed var(--line-soft)"><span class="mono">' + esc(i.code) + '</span><span class="muted">' + esc(i.kind) + (i.plan ? " · " + esc(i.plan) : "") + " · " + i.uses + "/" + i.max_uses + ' <button class="btn danger small" onclick="deleteInvite(\'' + i.id + '\')">×</button></span></div>').join("")
+      : '<span class="muted">No invite codes yet.</span>';
+    renderShared(shares.data.withMe || []);
+  } catch (e) { $("invites").innerHTML = '<span class="msg error">' + esc(e.message) + "</span>"; }
+}
+async function createInvite() {
+  const msg = $("inviteMsg");
+  try {
+    const { data } = await api("/api/invites", { method: "POST", body: {
+      kind: $("inviteKind").value, plan: $("invitePlan").value, max_uses: Number($("inviteUses").value) || 1,
+    }});
+    setMsg(msg, "Invite " + data.invite.code + " created — copy it now.", "ok");
+    loadWorkspace();
+  } catch (e) { setMsg(msg, e.message, "error"); }
+}
+async function deleteInvite(id) { await api("/api/invites/" + id, { method: "DELETE" }); loadWorkspace(); }
+async function createShare() {
+  const msg = $("shareMsg");
+  try {
+    await api("/api/shares", { method: "POST", body: { username: $("shareUser").value.trim(), script_id: $("shareScript").value || null } });
+    setMsg(msg, "Shared.", "ok");
+    loadWorkspace();
+  } catch (e) { setMsg(msg, e.message, "error"); }
+}
+async function redeem() {
+  const msg = $("redeemMsg");
+  try {
+    const { data } = await api("/api/invites/redeem", { method: "POST", body: { code: $("redeemCode").value.trim() } });
+    setMsg(msg, data.message || "Redeemed.", "ok");
+    await refreshMe();
+    loadWorkspace();
+  } catch (e) { setMsg(msg, e.message, "error"); }
+}
+function populateScriptPickers() {
+  const options = ['<option value="">— none —</option>'].concat(state.scripts.map((s) => '<option value="' + s.id + '">' + esc(s.name) + "</option>")).join("");
+  ["keyScript", "shareScript", "logScript"].forEach((id) => { if ($(id)) $(id).innerHTML = options; });
+}
+
+/* ----------------------------------------------------------------- account */
+function renderAccount(me) {
+  state.user = me.user; state.profile = me.profile;
+  $("who").textContent = me.user.username;
+  $("planChip").textContent = me.profile.plan;
+  const limit = me.usage?.limit ?? 0;
+  $("usageMetric").textContent = me.usage ? me.usage.count + (limit === -1 ? "" : " / " + limit) : "–";
+  $("usageNote").textContent = "window " + (me.usage?.month || "—") + (limit === -1 ? " · unlimited" : "");
+  $("tab-admin").classList.toggle("hidden", !(me.profile.role === "admin"));
+  $("accountInfo").innerHTML = `
+    <div>username: <b>${esc(me.user.username)}</b></div>
+    <div>plan: <b>${esc(me.profile.plan)}</b></div>
+    <div>status: ${esc(me.profile.status)}</div>
+    <div>terms: ${esc(me.profile.tos_version || "not accepted")} ${me.tosUpdateRequired ? '<button class="btn small" onclick="acceptTos()">Accept new terms</button>' : ""}</div>
+    <div>member since: ${fmtDate(me.profile.created_at)}</div>`;
+}
+async function refreshMe() {
+  try {
+    const { data } = await api("/api/auth/me");
+    renderAccount(data);
+    const { data: list } = await api("/api/scripts");
+    state.scripts = list.scripts || [];
+    $("scriptMetric").textContent = state.scripts.length;
+    $("scriptNote").textContent = "of " + ((state.meta?.plans || []).find((p) => p.id === state.profile.plan)?.limits.scripts === -1 ? "unlimited" : (state.meta?.plans || []).find((p) => p.id === state.profile.plan)?.limits.scripts ?? "—");
+    populateScriptPickers();
+  } catch { /* ignore */ }
+}
+async function acceptTos() {
+  await api("/api/tos/accept", { method: "POST", body: { version: state.meta?.tosVersion } });
+  await refreshMe();
+}
+async function loadLogs() {
+  const id = $("logScript").value;
+  if (!id) return setMsg($("logs"), "Pick a script first.", "muted");
+  try {
+    const { data } = await api("/api/scripts/" + id + "/logs");
+    $("logs").innerHTML = data.logs.length
+      ? "<table><thead><tr><th>when</th><th>status</th><th>key</th><th>hwid</th></tr></thead><tbody>" +
+        data.logs.map((l) => "<tr><td>" + fmtDate(l.created_at) + "</td><td>" + esc(l.status) + (l.code ? " (" + esc(l.code) + ")" : "") + "</td><td class='mono tiny'>" + esc(l.key_value || "—") + "</td><td class='tiny'>" + esc(l.hwid || "—") + "</td></tr>").join("") +
+        "</tbody></table>"
+      : '<span class="muted">No executions recorded yet.</span>';
+  } catch (e) { setMsg($("logs"), e.message, "error"); }
+}
+
+/* ------------------------------------------------------------------- admin */
+async function loadAdmin() {
+  try {
+    const [stats, users, ann] = await Promise.all([api("/api/admin/stats"), api("/api/admin/users"), api("/api/announcements")]);
+    const s = stats.data.stats;
+    $("adminStats").innerHTML = `
+      <div>users: <b>${s.users}</b></div><div>scripts: <b>${s.scripts}</b></div>
+      <div>keys: <b>${s.keys}</b></div><div>executions: <b>${s.executions}</b></div>
+      <div class="tiny">store ${esc(stats.data.store)} · auth ${esc(stats.data.auth)} · month ${esc(stats.data.month)}</div>`;
+    $("users").innerHTML = "<table><thead><tr><th>username</th><th>plan</th><th>status</th><th>actions</th></tr></thead><tbody>" +
+      users.data.users.map((u) => `<tr>
+        <td>${esc(u.username)}</td>
+        <td><select onchange="setUserPlan('${u.id}', this.value)">${["free", "pro", "premium"].map((p) => '<option ' + (p === u.plan ? "selected" : "") + ">" + p + "</option>").join("")}</select></td>
+        <td>${esc(u.status)}</td>
+        <td><button class="btn alt small" onclick="setUserStatus('${u.id}','active')">Restore</button>
+            <button class="btn alt small" onclick="setUserStatus('${u.id}','suspended')">Suspend</button>
+            <button class="btn danger small" onclick="setUserStatus('${u.id}','terminated')">Terminate</button></td>
+      </tr>`).join("") + "</tbody></table>";
+    $("annList").innerHTML = (ann.data.announcements || []).map((a) => '<div class="row between" style="padding:4px 0"><span>' + esc(a.title) + '</span><button class="btn danger small" onclick="deleteAnnouncement(\'' + a.id + '\')">×</button></div>').join("");
+  } catch (e) { $("adminStats").innerHTML = '<span class="msg error">' + esc(e.message) + "</span>"; }
+}
+async function setUserPlan(id, plan) { await api("/api/admin/users/" + id, { method: "PATCH", body: { plan } }); loadAdmin(); }
+async function setUserStatus(id, status) {
+  const body = { status };
+  if (status === "suspended") body.suspended_until = new Date(Date.now() + 7 * 86400000).toISOString();
+  await api("/api/admin/users/" + id, { method: "PATCH", body });
+  loadAdmin();
+}
+async function broadcast() {
+  try {
+    await api("/api/admin/announcements", { method: "POST", body: { title: $("annTitle").value.trim(), body: $("annBody").value.trim() } });
+    setMsg($("annMsg"), "Published.", "ok");
+    loadAnnouncements(); loadAdmin();
+  } catch (e) { setMsg($("annMsg"), e.message, "error"); }
+}
+async function deleteAnnouncement(id) { await api("/api/admin/announcements/" + id, { method: "DELETE" }); loadAnnouncements(); loadAdmin(); }
+
+/* -------------------------------------------------------------------- init */
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("dashboard").classList.contains("hidden")) { /* keep focus */ } });
 boot();
-</script><div class="footer-note">LuaLune protection is powered by the Lune Obfuscator engine.</div><div class="footer-note" style="opacity:.65;margin-top:10px">Based on Prometheus by Elias Oelschner — <a href="https://github.com/prometheus-lua/Prometheus" target="_blank" rel="noreferrer">source</a>.</div></body></html>
+</script>
+</body>
+</html>

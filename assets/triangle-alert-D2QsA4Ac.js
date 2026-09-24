@@ -1,1 +1,0 @@
-const component=()=>null;export{component};

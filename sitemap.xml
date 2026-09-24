@@ -1,6 +1,6 @@
-404
-Page not found
-The page you're looking for doesn't exist.
-Go home
-
-
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://luamore.app/</loc><priority>1.0</priority></url>
+  <url><loc>https://luamore.app/plans</loc><priority>0.8</priority></url>
+  <url><loc>https://luamore.app/tos</loc><priority>0.4</priority></url>
+</urlset>
