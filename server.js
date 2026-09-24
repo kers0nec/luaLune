@@ -192,11 +192,11 @@ app.post("/api/captcha/solve", (req, res) => {
 /* ------------------------------------------------------------------ auth */
 
 app.post("/api/auth/signup", authLimiter, async (req, res) => {
-  const { username, email, password } = req.body || {};
+  const { username, email, password, redirectTo } = req.body || {};
   const captcha = verifyChallenge(req.body?.captcha, req.body?.captchaNonce, {});
   if (!captcha.ok) return fail(res, 400, captcha.reason);
 
-  const result = await auth.signup({ username, email, password });
+  const result = await auth.signup({ username, email, password, redirectTo });
   if (result.error) return fail(res, 400, result.error);
   await store.acceptTos(result.user.id, TOS_VERSION);
   await store.updateProfile(result.user.id, { tos_version: TOS_VERSION });
