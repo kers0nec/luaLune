@@ -101,7 +101,8 @@ app.get("/api/scripts",auth,async(req,res)=>{
 app.post("/api/scripts",auth,async(req,res)=>{
   const name=String(req.body?.name||"").trim();
   const source=String(req.body?.source||"");
-  const strength=req.body?.strength==="light"?"light":"strong";
+  const requestedStrength=String(req.body?.strength||"strong").toLowerCase();
+  const strength=["light","weak","medium","strong"].includes(requestedStrength)?requestedStrength:"strong";
   if(name.length<1||name.length>80) return res.status(400).json({error:"Name must be 1-80 characters."});
   if(source.length<1||source.length>500000) return res.status(400).json({error:"Script must be 1-500,000 characters."});
   const {key,payload,raw}=await obfuscate(source,strength);
