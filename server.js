@@ -28,25 +28,32 @@ async function auth(req,res,next){
   req.sb=client; req.user=data.user; next();
 }
 
-function obfuscate(source){
-  const key=crypto.randomBytes(12).toString("hex");
-  const input=Buffer.from(source,"utf8"), k=Buffer.from(key), out=Buffer.alloc(input.length);
-  for(let i=0;i<input.length;i++) out[i]=input[i]^k[i%k.length];
-  return {key,payload:out.toString("hex")};
+function obfuscate(source,strength="strong"){
+  const k1=crypto.randomBytes(16), k2=crypto.randomBytes(16);
+  const input=Buffer.from(source,"utf8"), out=Buffer.alloc(input.length);
+  for(let i=0;i<input.length;i++){
+    let v=input[i]^k1[i%k1.length]^((i*31)&255);
+    if(strength==="strong") v=v^k2[i%k2.length]^((i*17+73)&255);
+    out[i]=v;
+  }
+  return {key:k1.toString("hex")+":"+k2.toString("hex"),payload:out.toString("hex")};
 }
 function loader(payload,key){
-  return `-- LuaLune protected loader
+  return `-- LuaLune protected build
 local __p="${payload}"
-local __k="${key}"
+local __keys="${key}"
+local __a,__b=__keys:match("([^:]+):([^:]+)")
 local __o={}
 for __i=1,#__p,2 do
-  local __b=tonumber(__p:sub(__i,__i+1),16)
-  local __kp=(((__i-1)/2)%#__k)+1
-  __o[#__o+1]=string.char(bit32.bxor(__b,__k:byte(__kp)))
+  local __n=(__i+1)/2
+  local __v=tonumber(__p:sub(__i,__i+1),16)
+  local __k1=tonumber(__a:sub(((__n-1)%16)*2+1,((__n-1)%16)*2+2),16)
+  local __k2=tonumber(__b:sub(((__n-1)%16)*2+1,((__n-1)%16)*2+2),16)
+  __v=bit32.bxor(__v,(__n-1)*31%256,__k1,__k2,(__n-1)*17%256,73)
+  __o[#__o+1]=string.char(__v)
 end
-local __src=table.concat(__o)
-local __fn=loadstring(__src)
-if not __fn then error("LuaLune: payload failed to decode") end
+local __fn=loadstring(table.concat(__o))
+if not __fn then error("LuaLune: invalid protected build") end
 return __fn()
 `;
 }
@@ -89,9 +96,10 @@ app.get("/api/scripts",auth,async(req,res)=>{
 app.post("/api/scripts",auth,async(req,res)=>{
   const name=String(req.body?.name||"").trim();
   const source=String(req.body?.source||"");
+  const strength=req.body?.strength==="light"?"light":"strong";
   if(name.length<1||name.length>80) return res.status(400).json({error:"Name must be 1-80 characters."});
   if(source.length<1||source.length>500000) return res.status(400).json({error:"Script must be 1-500,000 characters."});
-  const {key,payload}=obfuscate(source);
+  const {key,payload}=obfuscate(source,strength);
   const {data,error}=await req.sb.from("scripts").insert({owner_id:req.user.id,name,payload,secret_key:key,public:true}).select("id,name,created_at,updated_at,public").single();
   if(error) return res.status(500).json({error:error.message});
   const loaderUrl=req.protocol+"://"+req.get("host")+"/loader/"+data.id;
