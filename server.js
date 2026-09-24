@@ -49,7 +49,7 @@ for __i=1,#__p,2 do
   local __v=tonumber(__p:sub(__i,__i+1),16)
   local __k1=tonumber(__a:sub(((__n-1)%16)*2+1,((__n-1)%16)*2+2),16)
   local __k2=tonumber(__b:sub(((__n-1)%16)*2+1,((__n-1)%16)*2+2),16)
-  __v=bit32.bxor(__v,(__n-1)*31%256,__k1,__k2,(__n-1)*17%256,73)
+  if __b then __v=bit32.bxor(__v,(__n-1)*31%256,__k1,__k2,(__n-1)*17%256,73) else __v=bit32.bxor(__v,__keys:byte((__n-1)%#__keys+1)) end
   __o[#__o+1]=string.char(__v)
 end
 local __fn=loadstring(table.concat(__o))
