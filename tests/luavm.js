@@ -82,6 +82,18 @@ function output(L) {
 }
 
 /**
+ * Check that Lua source parses, without running it. Used for builds that call
+ * Roblox-only APIs (the executor runtime is not available in tests).
+ */
+export function syntaxCheck(source) {
+  const L = newState({});
+  const status = lauxlib.luaL_loadstring(L, to_luastring(source));
+  const error = status === lua.LUA_OK ? null : topString(L);
+  lua.lua_close(L);
+  return { ok: status === lua.LUA_OK, error };
+}
+
+/**
  * Execute Lua source and return everything it printed.
  * @returns {{ok:boolean, output?:string, error?:string}}
  */

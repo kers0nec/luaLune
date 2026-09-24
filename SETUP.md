@@ -52,6 +52,24 @@ Environment checklist:
 
 Health check: `GET /healthz` → `LuaLune OK`.
 
+### Optional: Lune Obfuscator engine (Prometheus)
+
+LuaLune ships with its own engines and works without any external bundle. To also
+offer the AST-level Lune Obfuscator engine that earlier deployments used:
+
+```bash
+npm install wasmoon
+git clone https://github.com/prometheus-lua/Prometheus vendor/prometheus
+```
+
+`GET /api/meta` then reports it as available and it appears in the dashboard engine
+picker. When it is missing, a request for that engine is built with
+*LuaLune Obfuscator - Vault* and the response includes a warning explaining why.
+
+The Lune Obfuscator engine is based on Prometheus by Elias Oelschner
+(https://github.com/prometheus-lua/Prometheus, MIT); keep that attribution in place
+when you deploy it.
+
 ## 4. First admin
 
 Sign up normally, then either add your email to `LUALUNE_ADMINS` or promote the

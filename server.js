@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { obfuscate, ENGINES } from "./lib/obfuscator.js";
+import * as lune from "./lib/lune.js";
 import { buildLoader, denialLoader, loaderSnippet } from "./lib/loader.js";
 import { PLANS, planFor, limit, checkLimit, monthKey, publicPlans } from "./lib/plans.js";
 import { issueChallenge, verifyChallenge, solve } from "./lib/captcha.js";
@@ -86,6 +87,38 @@ function adminOnly(req, res, next) {
   next();
 }
 
+/**
+ * Build a protected script. The optional Lune Obfuscator engine (Prometheus in a
+ * WASM VM) is used when it is installed; otherwise the same request is served by
+ * LuaLune's own Vault engine and the response says so.
+ */
+async function buildProtected(source, options) {
+  if (options.engine !== "lune") return obfuscate(source, options);
+  if (await lune.available()) {
+    const code = await lune.obfuscate(source, { preset: options.preset || "medium", antiTamper: options.harden !== false });
+    return {
+      code,
+      engine: "lune",
+      warnings: [],
+      stats: {
+        engine: "lune",
+        engineName: ENGINES.lune.name,
+        buildId: crypto.randomBytes(6).toString("hex"),
+        sourceBytes: Buffer.byteLength(source, "utf8"),
+        outputBytes: Buffer.byteLength(code, "utf8"),
+        ratio: +(Buffer.byteLength(code) / Math.max(1, Buffer.byteLength(source, "utf8"))).toFixed(2),
+        passes: ["ast-transform", "anti-tamper"],
+      },
+    };
+  }
+  const built = obfuscate(source, { ...options, engine: "vault" });
+  built.warnings = [
+    ...built.warnings,
+    "The Lune Obfuscator engine is not installed on this instance, so this build was made with LuaLune Obfuscator - Vault instead.",
+  ];
+  return built;
+}
+
 function obfuscatorOptions(req) {
   const engine = ENGINES[req.body?.engine] ? req.body.engine : "payload";
   return {
@@ -96,6 +129,9 @@ function obfuscatorOptions(req) {
     junk: req.body?.junk !== false,
     flatten: req.body?.flatten !== false,
     harden: req.body?.harden !== false,
+    preset: ["minify", "weak", "light", "medium", "balanced", "strong", "heavy", "maximum"].includes(String(req.body?.preset || "").toLowerCase())
+      ? String(req.body.preset).toLowerCase()
+      : "medium",
   };
 }
 
@@ -117,9 +153,14 @@ async function ensureTos(req, res) {
 app.get("/healthz", (_, res) => res.type("text").send("LuaLune OK\n"));
 
 app.get("/api/meta", async (_, res) => {
+  const luneReady = await lune.available();
   res.json({
     ...BRAND,
-    engines: Object.values(ENGINES),
+    engines: Object.values(ENGINES).map((engine) => ({
+      ...engine,
+      available: engine.external ? luneReady : true,
+      ...(engine.external && !luneReady ? { unavailableReason: lune.unavailableReason() } : {}),
+    })),
     plans: publicPlans(),
     tosVersion: TOS_VERSION,
   });
@@ -241,7 +282,7 @@ app.post("/api/scripts", authed, buildLimiter, async (req, res) => {
   const usageCheck = checkLimit(req.plan, "obfuscationsPerMonth", 0, usage.month, usage);
   if (!usageCheck.allowed) return fail(res, 402, usageCheck.reason, { upgrade: true });
 
-  const built = obfuscate(source, options);
+  const built = await buildProtected(source, options);
   const script = await store.createScript({
     owner_id: req.user.id,
     name,
@@ -285,7 +326,7 @@ app.post("/api/scripts/:id/rebuild", authed, buildLimiter, async (req, res) => {
   const usageCheck = checkLimit(req.plan, "obfuscationsPerMonth", 0, usage.month, usage);
   if (!usageCheck.allowed) return fail(res, 402, usageCheck.reason, { upgrade: true });
 
-  const built = obfuscate(source, obfuscatorOptions(req));
+  const built = await buildProtected(source, obfuscatorOptions(req));
   const updated = await store.updateScript(script.id, {
     engine: built.engine,
     build_id: built.stats.buildId,

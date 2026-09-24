@@ -47,12 +47,21 @@ test("tampering with a vault build trips the per-segment checksum", () => {
   const built = obfuscate(SAMPLE, { engine: "vault" });
   const records = [...built.code.matchAll(/"((?:\\\d{3})+)"\s*,\s*\d+\s*,\s*\d+/g)];
   assert.ok(records.length >= 3, "expected several checksummed segments");
-  const victim = records[0];
-  // flip the first byte of the first checksummed segment, deterministically
-  const bytes = victim[1].match(/\\\d{3}/g).map((chunk) => Number(chunk.slice(1)));
-  bytes[0] = (bytes[0] + 1) % 256;
-  const flipped = bytes.map((b) => "\\" + String(b).padStart(3, "0")).join("");
-  const tampered = built.code.slice(0, victim.index) + '"' + flipped + '"' + built.code.slice(victim.index + victim[0].length);
+  // Records are shuffled and include decoys, so corrupt all of them: whichever
+  // segment the dispatcher actually reads is guaranteed to be damaged.
+  const flip = (literal) => {
+    const bytes = literal.match(/\\\d{3}/g).map((chunk) => Number(chunk.slice(1)));
+    bytes[0] = (bytes[0] + 1) % 256;
+    return bytes.map((b) => "\\" + String(b).padStart(3, "0")).join("");
+  };
+  let tampered = built.code;
+  for (const record of records) {
+    // keep the checksum tail intact (the flip is length preserving, so earlier
+    // match offsets stay valid while we walk the list)
+    const patched = record[0].replace(record[1], flip(record[1]));
+    tampered = tampered.slice(0, record.index) + patched + tampered.slice(record.index + record[0].length);
+  }
+  assert.notEqual(tampered, built.code, "tamper step did not modify the build");
   const run = runLua(tampered);
   assert.equal(run.ok, false, "tampered build should not run");
   assert.match(run.error, /build integrity check failed/);

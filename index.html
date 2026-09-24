@@ -8,17 +8,17 @@
 <meta name="description" content="LuaLune protects Lua and Luau scripts with the LuaLune Obfuscator: control flow flattening, identifier and string encryption, encrypted runtime payloads and one-line loader URLs.">
 <meta property="og:title" content="LuaLune — Luau Protection">
 <meta property="og:description" content="The LuaLune Obfuscator: encrypted payloads, control flow flattening, key systems and loader URLs.">
-<meta property="og:image" content="/logo.png">
+<meta property="og:image" content="/logo-256.png">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="/logo.png">
-<link rel="apple-touch-icon" href="/logo.png">
+<link rel="icon" href="/logo-64.png">
+<link rel="apple-touch-icon" href="/logo-256.png">
 <link rel="manifest" href="/manifest.json">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 <div class="wrap">
   <header class="nav">
-    <div class="logo" onclick="go('home')"><img src="/logo.png" alt="LuaLune logo"><span>LuaLune</span></div>
+    <div class="logo" onclick="go('home')"><img src="/logo-64.png" alt="LuaLune logo"><span>LuaLune</span></div>
     <div class="navlinks">
       <button class="btn alt small" onclick="go('plans')">Plans</button>
       <button class="btn alt small" onclick="go('tos')">Terms</button>
@@ -32,7 +32,7 @@
   <section id="home">
     <main class="hero">
       <div class="heroGlow"></div>
-      <div class="logoMarkBig"><img src="/logo.png" alt=""></div>
+      <div class="logoMarkBig"><img src="/logo-256.png" alt=""></div>
       <div class="pill">Luau protection &bull; randomized builds &bull; private delivery</div>
       <div class="eyebrow" style="margin-top:22px">LuaLune Protection Engine</div>
       <h1>Protect your <span>Luau</span> without the ugly stuff.</h1>
@@ -299,7 +299,10 @@
   </section>
 
   <footer>
-    <span>&copy; <span id="year"></span> LuaLune — <span id="footerTag">LuaLune Obfuscator</span></span>
+    <div>
+      <span>&copy; <span id="year"></span> LuaLune — <span id="footerTag">LuaLune Obfuscator</span></span>
+      <div class="tiny muted-2" id="engineAttribution" style="margin-top:6px"></div>
+    </div>
     <span class="row"><a href="/api/meta">API</a><span class="muted-2">•</span><a href="#" onclick="go('tos');return false">Terms</a><span class="muted-2">•</span><a href="/healthz">Status</a></span>
   </footer>
 </div>
@@ -378,6 +381,10 @@ async function loadMeta() {
   if (state.meta) {
     document.title = "LuaLune — " + state.meta.product;
     $("footerTag").textContent = state.meta.product;
+    if ((state.meta.engines || []).some((e) => e.id === "lune")) {
+      $("engineAttribution").innerHTML = "Lune Obfuscator engine based on Prometheus by Elias Oelschner — " +
+        '<a href="https://github.com/prometheus-lua/Prometheus" target="_blank" rel="noreferrer">source</a> (MIT).';
+    }
   }
 }
 async function loadAnnouncements() {
@@ -521,25 +528,32 @@ function tab(name) {
 }
 
 const ENGINE_NOTES = {
+  lune: "AST-level engine powered by Prometheus inside a WASM Lua VM. Enable the engine bundle to use it.",
   payload: "Fastest build. Whole-chunk encryption with shuffled segments, an integrity check and a runtime decoder.",
   flow: "Source-level protection for Luau-only executors: flattening, renaming, encrypted strings and numbers.",
   vault: "Strongest build. Three cascaded transforms, per-segment checksums, decoy records and a magic-marker check. Pure arithmetic, so no bit32 needed.",
   none: "No protection — the script is served exactly as written.",
 };
 function renderEnginePicker() {
-  const engines = state.meta?.engines || [{ id: "payload", name: "LuaLune Obfuscator", tagline: "" }, { id: "flow", name: "LuaLune Obfuscator - Flow", tagline: "" }];
+  const all = state.meta?.engines || [{ id: "payload", name: "LuaLune Obfuscator", tagline: "" }, { id: "flow", name: "LuaLune Obfuscator - Flow", tagline: "" }];
+  const engines = all.filter((e) => e.id !== "none" && e.available !== false);
+  const optional = all.filter((e) => e.available === false);
+  if (!engines.some((e) => e.id === state.engine)) state.engine = engines[0]?.id || "payload";
   $("enginePicker").innerHTML = engines.map((e) => `
     <div class="engine ${e.id === state.engine ? "active" : ""}" data-engine="${e.id}" onclick="pickEngine('${e.id}')">
       <b>${esc(e.name)}</b><small>${esc(e.tagline)}</small>
     </div>`).join("");
-  $("engineNote").textContent = ENGINE_NOTES[state.engine] || "";
-  pickEngine(state.engine);
+  $("engineNote").innerHTML = optional.length
+    ? "Optional engine not installed on this instance: " + optional.map((e) => "<b>" + esc(e.name) + "</b>").join(", ") +
+      '. Add the bundle (<span class="mono">npm install wasmoon</span> + <span class="mono">vendor/prometheus</span>) to enable it; requests for it fall back to Vault.'
+    : (ENGINE_NOTES[state.engine] || "");
+  pickEngine(state.engine, true);
 }
-function pickEngine(id) {
+function pickEngine(id, keepNote) {
   state.engine = id;
   [...document.querySelectorAll(".engine")].forEach((el) => el.classList.toggle("active", el.dataset.engine === id));
   // the source-level passes only apply to the flow engine; every engine keeps the guard toggle
-  $("engineNote").textContent = ENGINE_NOTES[id] || "";
+  if (!keepNote) $("engineNote").textContent = ENGINE_NOTES[id] || "";
   const flowOnly = ["rename", "strings", "numbers", "junk", "flatten"];
   [...document.querySelectorAll("[data-option]")].forEach((el) => {
     const key = el.dataset.option;

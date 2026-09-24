@@ -292,7 +292,8 @@ test("the gold dashboard is served with the LuaLune brand and no discord links",
   assert.equal(page.status, 200);
   assert.match(html, /LuaLune Obfuscator/);
   assert.match(html, /\/styles\.css/);
-  assert.match(html, /\/logo\.png/);
+  assert.match(html, /\/logo-256\.png/, "hero logo missing");
+  assert.match(html, /\/logo-64\.png/, "nav logo missing");
   assert.ok(!/discord/i.test(html), "discord must not appear in the app");
 
   const css = await (await fetch(`${base}/styles.css`)).text();
@@ -301,6 +302,10 @@ test("the gold dashboard is served with the LuaLune brand and no discord links",
   const logo = await fetch(`${base}/logo.png`);
   assert.equal(logo.status, 200);
   assert.match(logo.headers.get("content-type") || "", /image\/png/);
+
+  const meta = await (await fetch(`${base}/api/meta`)).json();
+  assert.ok(meta.engines.some((e) => e.id === "lune" && e.available === false), "an uninstalled optional engine must report itself as unavailable");
+  assert.ok(meta.engines.filter((e) => !e.external).every((e) => e.available), "built in engines are always available");
 
   const manifest = await (await fetch(`${base}/manifest.json`)).json();
   assert.match(manifest.name, /LuaLune/);

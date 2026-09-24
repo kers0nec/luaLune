@@ -19,7 +19,22 @@ loadstring(game:HttpGet("https://<your-domain>/loader/<script-id>"))()
 | **LuaLune Obfuscator** (`payload`) | Encrypts the whole chunk (Park–Miller keystream, per-build seed), splits the ciphertext into shuffled segments, ships a randomized runtime decoder, verifies an Adler-style integrity checksum before decoding and rebuilds the chunk in memory with `loadstring`. Best speed/size trade-off. |
 | **LuaLune Obfuscator - Flow** (`flow`) | Source-to-source: scope-aware identifier renaming, control-flow flattening, encrypted string tables in two shuffled pools with decoys, split number literals and dead-code injection. Output stays valid Luau, so it also runs on Luau-only executors. |
 | **LuaLune Obfuscator - Vault** (`vault`) | Strongest build. Three cascaded transforms (keystream xor → 3-bit rotate → additive stream), per-segment checksums, decoy records mixed into the pool, a magic marker checked after decoding, and no `bit32` dependency at all. |
+| **Lune Obfuscator** (`lune`) | Optional AST-level engine: Prometheus by Elias Oelschner running inside a WASM Lua VM. Install the bundle (below) to enable it; without it, requests for this engine are built with Vault and the response says so. |
 | **None** | Stores the script untouched (useful for diffing engines or shipping open source scripts). |
+
+### Enabling the Lune Obfuscator engine (optional)
+
+```bash
+npm install wasmoon
+git clone https://github.com/prometheus-lua/Prometheus vendor/prometheus
+```
+
+`/api/meta` reports `available: true/false` per engine, and the dashboard only offers
+the engine when it is installed.
+
+> The Lune Obfuscator engine is based on **Prometheus** by Elias Oelschner
+> (https://github.com/prometheus-lua/Prometheus, MIT). LuaLune's own engines
+> (payload / flow / vault) are original work and need no external bundle.
 
 ### Protections shared by the encrypted engines
 
@@ -127,6 +142,7 @@ lib/plans.js         plan catalogue and limit checks
 lib/loader.js        loader banners, snippets and denial stubs
 lib/captcha.js       proof-of-work human check
 lib/ratelimit.js     fixed window rate limiting (api, builds, loader)
+lib/lune.js          optional Lune Obfuscator (Prometheus) engine + attribution
 lib/auth.js          Supabase auth or built-in scrypt auth
 lib/store.js         memory or Supabase storage adapter
 lib/tos.js           terms of service text and version
@@ -158,6 +174,14 @@ actually executed and its printed output is compared against the original script
 - `protection.test.js` — vault round trips, `bit32`-free builds, xor table
   correctness, per-segment tamper detection, environment guard behaviour.
 - `api.test.js` / `ratelimit.test.js` — the HTTP surface end to end.
+- `lune.test.js` — the optional engine's availability reporting, the anti-tamper
+  wrapper's validity as Lua, and the Vault fallback when the bundle is missing.
+
+## Credits
+
+- LuaLune Obfuscator engines, platform and dashboard: this repository.
+- Lune Obfuscator engine (optional): Prometheus by Elias Oelschner,
+  https://github.com/prometheus-lua/Prometheus — MIT.
 
 ## Legal
 
