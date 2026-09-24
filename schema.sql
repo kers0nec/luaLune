@@ -20,6 +20,32 @@ create table if not exists public.profiles (
 
 create index if not exists profiles_username_idx on public.profiles(lower(username));
 
+-- Automatically create the application profile when Supabase Auth creates a user.
+-- This runs with the function owner's privileges so email confirmation can happen
+-- before the user has an authenticated database session.
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user();
+create function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $
+begin
+  insert into public.profiles (id, email, username)
+  values (
+    new.id,
+    coalesce(new.email, ''),
+    left(regexp_replace(coalesce(new.raw_user_meta_data->>'username', split_part(coalesce(new.email, ''), '@', 1)), '[^a-zA-Z0-9._-]', '', 'g'), 24)
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute procedure public.handle_new_user();
+
+
 -- ----------------------------------------------------------------- scripts
 create table if not exists public.scripts (
   id uuid primary key default gen_random_uuid(),
