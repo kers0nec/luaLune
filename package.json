@@ -2,21 +2,15 @@
   "name": "lualune",
   "version": "2.0.0",
   "private": true,
-  "type": "module",
-  "description": "LuaLune — Luau protection platform with the LuaLune Obfuscator and an optional Lune Obfuscator (Prometheus) engine",
+  "description": "LuaLune — gold glass Lua/Luau obfuscation, script delivery and licensing dashboard.",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
-    "test": "node --test tests/"
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.0",
-    "express": "^5.1.0"
-  },
-  "optionalDependencies": {
     "wasmoon": "^1.16.0"
-  },
-  "devDependencies": {
-    "fengari": "^0.1.5"
   }
 }
