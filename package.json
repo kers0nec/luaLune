@@ -1,8 +1,8 @@
 {
   "name":"lualune",
-  "version":"1.0.0",
+  "version":"2.0.0",
   "private":true,
-  "type":"module",
-  "scripts":{"start":"node server.js"},
-  "dependencies":{"@supabase/supabase-js":"^2.57.0","express":"^5.1.0"}
+  "description":"LuaLune — gold glass Lua/Luau obfuscation powered by Lune Obfuscator.",
+  "scripts":{"start":"node server.js","dev":"node server.js"},
+  "dependencies":{"@supabase/supabase-js":"^2.57.0","express":"^5.1.0","wasmoon":"^1.16.0"}
 }
