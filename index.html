@@ -496,6 +496,7 @@ $("authForm").addEventListener("submit", async (event) => {
       setMsg($("authMsg"), "Creating your account…");
       const { data } = await api("/api/auth/signup", { method: "POST", body: {
         username: username || email.split("@")[0], password, email,
+        redirectTo: window.location.origin + "/?confirmed=1",
         captcha: state.captcha?.challenge, captchaNonce: state.captchaNonce,
       }});
       if (!data.session) {
