@@ -1,8 +1,19 @@
 {
-  "name":"lualune",
-  "version":"1.0.0",
-  "private":true,
-  "type":"module",
-  "scripts":{"start":"node server.js"},
-  "dependencies":{"@supabase/supabase-js":"^2.57.0","express":"^5.1.0"}
+  "name": "lualune",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "LuaLune — Luau protection platform with the LuaLune Obfuscator",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "fengari": "^0.1.5"
+  }
 }

@@ -1,35 +1,73 @@
 # LuaLune deployment
 
-## 1. Supabase
+LuaLune is a single Node/Express service: it serves the gold themed dashboard and
+the API, and it serves protected builds from `/loader/:id`.
 
-Open the SQL Editor for the Supabase project configured for LuaLune and run **schema.sql** from this repository once.
+## 1. Run it locally
 
-The schema creates the scripts table and Row Level Security policies. Auth itself is handled by Supabase email/password auth.
+```bash
+npm install
+npm start          # http://localhost:10000
+npm test           # 39 tests, including Lua VM round trips of generated builds
+```
 
-## 2. Render
+With no Supabase environment variables LuaLune starts in self contained mode:
+accounts, sessions, scripts, keys, logs and invite codes live in memory and reset
+when the process restarts. Useful for previews, demos and development.
 
-This repository now runs as a Node/Express service instead of nginx.
+## 2. Supabase (persistent mode)
 
-Set these Render environment variables:
+1. Create a Supabase project.
+2. Open the SQL editor and run **schema.sql** from this repository once. It creates
+   `profiles`, `scripts`, `script_keys`, `whitelist_entries`, `invites`, `shares`,
+   `usage_counters`, `tos_acceptances`, `execution_logs` and `announcements`, and
+   enables row level security so users only touch their own rows.
+3. In Supabase → Authentication → Providers, keep email/password enabled. Email
+   confirmation is optional; if you turn it on, new accounts must confirm before
+   their first sign in.
+4. Set the environment variables on your host:
 
-- `SUPABASE_URL` = your Supabase project URL
-- `SUPABASE_ANON_KEY` = your Supabase publishable/anon key
+   - `SUPABASE_URL` = your project URL
+   - `SUPABASE_ANON_KEY` = your publishable/anon key
 
-Do not put a service-role key in the repository or browser.
+   Never put a service role key in the repository or the browser.
 
-Render should use the repository Dockerfile. The server listens on Render's `PORT` automatically.
+Without Supabase configured the app falls back to the built-in auth (scrypt
+password hashes + HMAC signed session tokens) and the in-memory store.
 
-## 3. What is implemented
+## 3. Deploy
 
-- Email/password signup and login with an optional display name
-- Persistent Supabase sessions
-- Authenticated dashboard
-- Server-side script obfuscation
-- Per-script public loader endpoint
-- One-line `loadstring(game:HttpGet(...))()` generation
-- Script listing and deletion
-- Supabase RLS so users only manage their own scripts
-- Public loader reads only scripts marked public
-- `/healthz` health check
+This repository ships a `Dockerfile`; Render builds it and the server listens on
+`PORT` automatically.
 
-The obfuscator uses a generated XOR key and hex payload. This is obfuscation, not cryptographic secrecy; do not treat it as a way to protect a secret that must remain confidential.
+Environment checklist:
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `SUPABASE_URL` | for persistence | Project URL. |
+| `SUPABASE_ANON_KEY` | for persistence | Publishable/anon key. |
+| `LUALUNE_AUTH_SECRET` | recommended | Signs local session tokens. Generate with `openssl rand -hex 32`. |
+| `LUALUNE_DOMAIN` | optional | Shown in metadata; used as the log hashing salt. |
+| `LUALUNE_ADMINS` | optional | Comma separated emails granted admin access. |
+
+Health check: `GET /healthz` → `LuaLune OK`.
+
+## 4. First admin
+
+Sign up normally, then either add your email to `LUALUNE_ADMINS` or promote the
+account in SQL:
+
+```sql
+update public.profiles set role = 'admin' where username = 'your_username';
+```
+
+Admins get the Admin tab: platform stats, plan and status changes, and broadcasts
+that appear at the top of every page.
+
+## 5. What to verify after deploying
+
+- `GET /healthz` returns `LuaLune OK`.
+- Signing up requires the human check to be solved in the browser.
+- Creating a script returns a loader URL, and fetching that URL returns text.
+- A script marked *key required* returns a denial stub without a valid key.
+- `GET /api/meta` reports the store and auth mode in use.

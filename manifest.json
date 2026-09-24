@@ -1,6 +1,12 @@
-404
-Page not found
-The page you're looking for doesn't exist.
-Go home
-
-
+{
+  "name": "LuaLune — LuaLune Obfuscator",
+  "short_name": "LuaLune",
+  "description": "Protect Lua and Luau scripts with the LuaLune Obfuscator.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0906",
+  "theme_color": "#f5c542",
+  "icons": [
+    { "src": "/logo.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ]
+}

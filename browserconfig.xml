@@ -1,6 +1,9 @@
-404
-Page not found
-The page you're looking for doesn't exist.
-Go home
-
-
+<?xml version="1.0" encoding="utf-8"?>
+<browserconfig>
+  <msapplication>
+    <tile>
+      <square150x150logo src="/logo.png"/>
+      <TileColor>#0b0906</TileColor>
+    </tile>
+  </msapplication>
+</browserconfig>

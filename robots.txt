@@ -1,6 +1,3 @@
-404
-Page not found
-The page you're looking for doesn't exist.
-Go home
-
-
+User-agent: *
+Allow: /
+Sitemap: https://luamore.app/sitemap.xml
