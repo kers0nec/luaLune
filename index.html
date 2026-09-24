@@ -45,7 +45,7 @@
 
     <section class="cards">
       <div class="card"><div class="eyebrow">01</div><h3>LuaLune Obfuscator</h3><p>Randomized payload encryption, shuffled chunk delivery, an integrity check and a runtime decoder that rebuilds your chunk in memory.</p></div>
-      <div class="card"><div class="eyebrow">02</div><h3>Flow protection</h3><p>Control flow flattening, scope-aware identifier renaming, encrypted string tables and split number literals.</p></div>
+      <div class="card"><div class="eyebrow">02</div><h3>Flow &amp; Vault</h3><p>Flow flattens control flow and rewrites identifiers, strings and numbers. Vault cascades three transforms with per-segment keys, decoy records and integrity checks.</p></div>
       <div class="card"><div class="eyebrow">03</div><h3>Delivery built in</h3><p>Stable loader URLs, permanent or timed keys, HWID whitelists, execution logs and workspace sharing.</p></div>
     </section>
 
@@ -127,6 +127,7 @@
         <input id="scriptName" placeholder="my-awesome-script" maxlength="80">
         <label>Engine</label>
         <div class="engines" id="enginePicker"></div>
+        <div class="muted tiny" id="engineNote"></div>
         <label>Luau source</label>
         <textarea id="source" placeholder="-- paste Luau here&#10;print(&quot;Hello from LuaLune&quot;)"></textarea>
         <div class="row between">
@@ -171,6 +172,7 @@
         <select id="editEngine">
           <option value="payload">LuaLune Obfuscator</option>
           <option value="flow">LuaLune Obfuscator - Flow</option>
+          <option value="vault">LuaLune Obfuscator - Vault</option>
           <option value="none">None</option>
         </select>
         <div id="editMsg" class="msg muted"></div>
@@ -308,7 +310,7 @@ const state = {
   token: localStorage.getItem("lualune_token") || null,
   user: null, profile: null, meta: null,
   engine: "payload",
-  options: { rename: true, strings: true, numbers: true, junk: true, flatten: true },
+  options: { rename: true, strings: true, numbers: true, junk: true, flatten: true, harden: true },
   scripts: [], keys: [], durations: [],
   captcha: null, captchaNonce: null, solving: false,
   tosAccepted: false,
@@ -518,20 +520,35 @@ function tab(name) {
   if (name === "admin") loadAdmin();
 }
 
+const ENGINE_NOTES = {
+  payload: "Fastest build. Whole-chunk encryption with shuffled segments, an integrity check and a runtime decoder.",
+  flow: "Source-level protection for Luau-only executors: flattening, renaming, encrypted strings and numbers.",
+  vault: "Strongest build. Three cascaded transforms, per-segment checksums, decoy records and a magic-marker check. Pure arithmetic, so no bit32 needed.",
+  none: "No protection — the script is served exactly as written.",
+};
 function renderEnginePicker() {
-  const engines = (state.meta?.engines || [{ id: "payload", name: "LuaLune Obfuscator", tagline: "" }, { id: "flow", name: "LuaLune Obfuscator - Flow", tagline: "" }]);
+  const engines = state.meta?.engines || [{ id: "payload", name: "LuaLune Obfuscator", tagline: "" }, { id: "flow", name: "LuaLune Obfuscator - Flow", tagline: "" }];
   $("enginePicker").innerHTML = engines.map((e) => `
     <div class="engine ${e.id === state.engine ? "active" : ""}" data-engine="${e.id}" onclick="pickEngine('${e.id}')">
       <b>${esc(e.name)}</b><small>${esc(e.tagline)}</small>
     </div>`).join("");
+  $("engineNote").textContent = ENGINE_NOTES[state.engine] || "";
+  pickEngine(state.engine);
 }
 function pickEngine(id) {
   state.engine = id;
   [...document.querySelectorAll(".engine")].forEach((el) => el.classList.toggle("active", el.dataset.engine === id));
-  $("options").classList.toggle("hidden", id !== "flow");
+  // the source-level passes only apply to the flow engine; every engine keeps the guard toggle
+  $("engineNote").textContent = ENGINE_NOTES[id] || "";
+  const flowOnly = ["rename", "strings", "numbers", "junk", "flatten"];
+  [...document.querySelectorAll("[data-option]")].forEach((el) => {
+    const key = el.dataset.option;
+    el.classList.toggle("hidden", id === "none" || (flowOnly.includes(key) && id !== "flow"));
+  });
 }
 const OPTION_LABELS = {
-  rename: "Identifier renaming", strings: "String encryption", numbers: "Number encryption", junk: "Dead code", flatten: "Control flow flattening",
+  rename: "Identifier renaming", strings: "String encryption", numbers: "Number encryption", junk: "Dead code",
+  flatten: "Control flow flattening", harden: "Anti-tamper guard",
 };
 function renderOptions() {
   $("options").innerHTML = Object.entries(OPTION_LABELS).map(([key, label]) => `

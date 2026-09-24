@@ -169,8 +169,8 @@ for (const [name, source] of Object.entries(SCRIPTS)) {
   const baseline = runLua(source);
   test(`fuzz: ${name} survives every engine`, () => {
     assert.ok(baseline.ok, `baseline failed: ${baseline.error}`);
-    for (const engine of ["payload", "flow", "none"]) {
-      for (const options of [{}, { junkDensity: 1 }, { rename: false }, { strings: false, numbers: false }]) {
+    for (const engine of ["payload", "flow", "vault", "none"]) {
+      for (const options of [{}, { junkDensity: 1 }, { rename: false }, { strings: false, numbers: false }, { harden: false }]) {
         const built = obfuscate(source, { engine, ...options });
         const run = runLua(built.code);
         assert.ok(run.ok, `${name}/${engine}/${JSON.stringify(options)} failed: ${run.error}`);
@@ -190,7 +190,7 @@ test("fuzz: builds stay valid with and without bit32", () => {
 
 test("fuzz: repeated builds of the same source always run the same", () => {
   for (let i = 0; i < 12; i++) {
-    const built = obfuscate(SCRIPTS.bigger, { engine: i % 2 ? "payload" : "flow" });
+    const built = obfuscate(SCRIPTS.bigger, { engine: ["payload", "flow", "vault"][i % 3] });
     const run = runLua(built.code);
     assert.ok(run.ok, `iteration ${i}: ${run.error}`);
     assert.equal(run.output, runLua(SCRIPTS.bigger).output, `iteration ${i} changed output`);

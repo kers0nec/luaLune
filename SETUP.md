@@ -69,5 +69,8 @@ that appear at the top of every page.
 - `GET /healthz` returns `LuaLune OK`.
 - Signing up requires the human check to be solved in the browser.
 - Creating a script returns a loader URL, and fetching that URL returns text.
+- Each engine builds and runs: `payload`, `flow`, `vault` (and `none`).
+- `npm test` passes locally before you deploy — it executes generated builds in a
+  Lua VM and compares their output with the original script.
 - A script marked *key required* returns a denial stub without a valid key.
 - `GET /api/meta` reports the store and auth mode in use.

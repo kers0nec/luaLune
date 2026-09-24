@@ -95,6 +95,7 @@ function obfuscatorOptions(req) {
     numbers: req.body?.numbers !== false,
     junk: req.body?.junk !== false,
     flatten: req.body?.flatten !== false,
+    harden: req.body?.harden !== false,
   };
 }
 

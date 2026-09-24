@@ -16,9 +16,25 @@ loadstring(game:HttpGet("https://<your-domain>/loader/<script-id>"))()
 
 | Engine | What it does |
 | --- | --- |
-| **LuaLune Obfuscator** (`payload`) | Encrypts the whole chunk (Park–Miller keystream, per-build seed), splits the ciphertext into shuffled segments, ships a randomized runtime decoder, verifies an Adler-style integrity checksum before decoding and rebuilds the chunk in memory with `loadstring`. |
-| **LuaLune Obfuscator - Flow** (`flow`) | Source-to-source: scope-aware identifier renaming, control-flow flattening, encrypted string tables with a memoized decoder, split number literals and dead-code injection. Output stays valid Luau, so it also runs on Luau-only executors. |
+| **LuaLune Obfuscator** (`payload`) | Encrypts the whole chunk (Park–Miller keystream, per-build seed), splits the ciphertext into shuffled segments, ships a randomized runtime decoder, verifies an Adler-style integrity checksum before decoding and rebuilds the chunk in memory with `loadstring`. Best speed/size trade-off. |
+| **LuaLune Obfuscator - Flow** (`flow`) | Source-to-source: scope-aware identifier renaming, control-flow flattening, encrypted string tables in two shuffled pools with decoys, split number literals and dead-code injection. Output stays valid Luau, so it also runs on Luau-only executors. |
+| **LuaLune Obfuscator - Vault** (`vault`) | Strongest build. Three cascaded transforms (keystream xor → 3-bit rotate → additive stream), per-segment checksums, decoy records mixed into the pool, a magic marker checked after decoding, and no `bit32` dependency at all. |
 | **None** | Stores the script untouched (useful for diffing engines or shipping open source scripts). |
+
+### Protections shared by the encrypted engines
+
+- **Nibble-table xor** — generated builds carry a shifted 256-byte xor table that is
+  rebuilt at runtime, so payloads never rely on the executor's `bit32` (some ship it
+  broken, some do not ship it at all) and the decoder is pure arithmetic.
+- **Environment guard** (`harden`, on by default) — the build self-tests the builtins it
+  depends on (`string.char`, `string.byte`, `table.concat`, `math.fmod`, `math.floor`,
+  `loadstring`/`load`) and refuses to run when they have been replaced by something that
+  lies. Honest wrappers pass; a hooked environment does not.
+- **Integrity checks** — a global checksum for `payload`, per-segment checksums for
+  `vault`, each compared as two 16-bit halves so the maths is exact on any Lua integer
+  width and tampering fails closed with a clear error.
+- **Randomized builds** — new seeds, new table layout, new identifier names and a new
+  build id every time, so two builds of the same script never match.
 
 Every pass is conservative. If a construct cannot be transformed without risking a
 behaviour change (repeat/until, goto, Luau if-expressions, top-level varargs,
@@ -43,7 +59,7 @@ accounts, sessions and data live in memory (great for a local run or a preview
 sandbox, wiped on restart). Configure Supabase to make it persistent.
 
 ```bash
-npm test           # 39 tests: obfuscator, API, fuzz round trips through a Lua VM
+npm test           # 55 tests: obfuscator, protections, API, fuzz round trips through a Lua VM
 ```
 
 ### Environment
@@ -134,8 +150,14 @@ schema.sql           Supabase schema + row level security
 
 `tests/luavm.js` embeds a Lua 5.3 VM (fengari) so every generated build is
 actually executed and its printed output is compared against the original script.
-The fuzz suite runs ten construct-heavy scripts through both engines with the
-options toggled on and off.
+
+- `obfuscator.test.js` — lexer, passes, engine catalogue, tamper detection.
+- `fuzz.test.js` — eleven construct-heavy scripts (closures, methods, tables,
+  recursion, varargs, shadowing, split declarations) through **every engine** with
+  the passes toggled on and off.
+- `protection.test.js` — vault round trips, `bit32`-free builds, xor table
+  correctness, per-segment tamper detection, environment guard behaviour.
+- `api.test.js` / `ratelimit.test.js` — the HTTP surface end to end.
 
 ## Legal
 
