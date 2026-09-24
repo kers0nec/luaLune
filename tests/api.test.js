@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 process.env.NODE_ENV = "test";
 process.env.SUPABASE_URL = "";
 process.env.SUPABASE_ANON_KEY = "";
+// Fresh auth state per run so repeated `npm test` never sees stale accounts.
+process.env.LUALUNE_DATA_DIR = (await import("node:fs")).mkdtempSync((await import("node:os")).tmpdir() + "/lualune-test-");
 
 const { app, store } = await import("../server.js");
 const { runLua } = await import("./luavm.js");

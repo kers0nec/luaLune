@@ -158,6 +158,7 @@ app.get("/api/meta", async (_, res) => {
   const luneReady = await lune.available();
   res.json({
     ...BRAND,
+    authAutoConfirm: auth.adminReady,
     engines: Object.values(ENGINES).map((engine) => ({
       ...engine,
       available: engine.external ? luneReady : true,
@@ -198,10 +199,21 @@ app.post("/api/auth/signup", authLimiter, async (req, res) => {
   const captcha = verifyChallenge(req.body?.captcha, req.body?.captchaNonce, {});
   if (!captcha.ok) return fail(res, 400, captcha.reason);
 
-  const result = await auth.signup({ username, email, password, redirectTo });
+  let result;
+  try {
+    result = await auth.signup({ username, email, password, redirectTo });
+  } catch (e) {
+    console.error("signup failed:", e.message);
+    return fail(res, 502, "Could not create the account — the auth backend is unreachable or misconfigured. Check SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY.");
+  }
   if (result.error) return fail(res, 400, result.error);
-  await store.acceptTos(result.user.id, TOS_VERSION);
-  await store.updateProfile(result.user.id, { tos_version: TOS_VERSION });
+  try {
+    await store.acceptTos(result.user.id, TOS_VERSION);
+    await store.updateProfile(result.user.id, { tos_version: TOS_VERSION });
+  } catch (e) {
+    // The account exists; profile housekeeping can be retried on next login.
+    console.error("signup profile sync failed:", e.message);
+  }
   res.status(201).json(result);
 });
 

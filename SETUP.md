@@ -8,7 +8,7 @@ the API, and it serves protected builds from `/loader/:id`.
 ```bash
 npm install
 npm start          # http://localhost:10000
-npm test           # 39 tests, including Lua VM round trips of generated builds
+npm test           # 65 tests, including Lua VM round trips of generated builds
 ```
 
 With no Supabase environment variables LuaLune starts in self contained mode:
@@ -23,8 +23,9 @@ when the process restarts. Useful for previews, demos and development.
    `usage_counters`, `tos_acceptances`, `execution_logs` and `announcements`, and
    enables row level security so users only touch their own rows.
 3. In Supabase → Authentication → Providers, keep email/password enabled. Email
-   confirmation is optional; if you turn it on, new accounts must confirm before
-   their first sign in.
+   confirmation is optional: LuaLune confirms sign-ups itself when
+   `SUPABASE_SERVICE_ROLE_KEY` is set (required for username-only accounts,
+   whose generated `user@users.lualune.local` address cannot receive mail).
 4. Set the environment variables on your host:
 
    - `SUPABASE_URL` = your project URL
@@ -34,7 +35,9 @@ when the process restarts. Useful for previews, demos and development.
    Never put a service role key in the repository or the browser.
 
 Without Supabase configured the app falls back to the built-in auth (scrypt
-password hashes + HMAC signed session tokens) and the in-memory store.
+password hashes + HMAC signed session tokens) and the in-memory store. Accounts
+and the token signing secret are persisted to `data/auth-local.json`, so local
+logins survive restarts.
 
 ## 3. Deploy
 
@@ -47,11 +50,21 @@ Environment checklist:
 | --- | --- | --- |
 | `SUPABASE_URL` | for persistence | Project URL. |
 | `SUPABASE_ANON_KEY` | for persistence | Publishable/anon key. |
+| `SUPABASE_SERVICE_ROLE_KEY` | recommended | Server-only admin key. Auto-confirms sign-ups so username-only accounts can always log in. |
 | `LUALUNE_AUTH_SECRET` | recommended | Signs local session tokens. Generate with `openssl rand -hex 32`. |
 | `LUALUNE_DOMAIN` | optional | Shown in metadata; used as the log hashing salt. |
 | `LUALUNE_ADMINS` | optional | Comma separated emails granted admin access. |
 
 Health check: `GET /healthz` → `LuaLune OK`.
+
+## Troubleshooting sign-in
+
+| Symptom | Cause and fix |
+| --- | --- |
+| "Invalid username or password" although the password is right | The Supabase account is unconfirmed ("Confirm email" is on and the account cannot receive mail). Add `SUPABASE_SERVICE_ROLE_KEY` and restart — the next login auto-confirms the account. |
+| Login returns 502 "Could not reach the account database" | `schema.sql` was not run, or the Supabase keys are wrong/expired. Re-run `schema.sql` in the SQL editor. |
+| Every account disappears after each deploy | The instance runs without Supabase, so storage is memory only. Add `SUPABASE_URL` / `SUPABASE_ANON_KEY`. |
+| "Too many sign-in attempts" | Per-IP rate limit (60 per 10 min). Wait or raise `LUALUNE_RATE_AUTH`. |
 
 ### Optional: Lune Obfuscator engine (Prometheus)
 

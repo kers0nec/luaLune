@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 process.env.NODE_ENV = "test";
 process.env.SUPABASE_URL = "";
 process.env.SUPABASE_ANON_KEY = "";
+process.env.LUALUNE_DATA_DIR = (await import("node:fs")).mkdtempSync((await import("node:os")).tmpdir() + "/lualune-test-");
 
 const lune = await import("../lib/lune.js");
 const { app, store } = await import("../server.js");
