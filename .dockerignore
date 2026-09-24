@@ -1,6 +1,4 @@
-.git
-node_modules
-tests
-npm-debug.log*
+data
 .env
-.env.*
+.git
+*.log
